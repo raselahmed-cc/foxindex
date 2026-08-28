@@ -65,6 +65,25 @@ importers:
         specifier: 4.1.11
         version: 4.1.11(@types/node@22.20.1)(@vitest/coverage-v8@4.1.11)(vite@8.2.2(@types/node@22.20.1))
 
+  packages/providers:
+    dependencies:
+      '@foxindex/config':
+        specifier: workspace:*
+        version: link:../config
+      '@foxindex/types':
+        specifier: workspace:*
+        version: link:../types
+    devDependencies:
+      '@types/node':
+        specifier: 22.20.1
+        version: 22.20.1
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 4.1.11
+        version: 4.1.11(@types/node@22.20.1)(@vitest/coverage-v8@4.1.11)(vite@8.2.2(@types/node@22.20.1))
+
   packages/ssrf-fetch:
     dependencies:
       ipaddr.js:
