@@ -1,0 +1,28 @@
+{
+  "name": "@foxindex/validation",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@foxindex/config": "workspace:*",
+    "@foxindex/types": "workspace:*",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}
