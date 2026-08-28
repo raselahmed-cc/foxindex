@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "references": [
+    { "path": "../config" },
+    { "path": "../database" },
+    { "path": "../logger" },
+    { "path": "../types" }
+  ],
+  "include": ["src"],
+  "exclude": ["**/*.spec.ts", "dist", "node_modules"]
+}

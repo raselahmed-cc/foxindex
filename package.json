@@ -17,7 +17,6 @@
     "format:check": "prettier --check .",
     "db:generate": "pnpm --filter @foxindex/database db:generate",
     "db:migrate": "pnpm --filter @foxindex/database db:migrate",
-    "db:seed": "pnpm --filter @foxindex/database db:seed",
     "auth:generate": "pnpm --filter @foxindex/auth auth:generate"
   },
   "devDependencies": {
