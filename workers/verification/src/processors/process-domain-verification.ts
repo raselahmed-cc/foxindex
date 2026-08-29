@@ -79,5 +79,6 @@ export async function processDomainVerification(
     jobId,
   });
   await repository.markDomainVerified(domain.id, new Date());
+  await repository.recordDomainVerifiedAudit(domain.organizationId, domain.id, domain.hostname);
   logEvent(logger, 'domain.verified', `Domain ${domain.hostname} verified`, { domainId: domain.id });
 }

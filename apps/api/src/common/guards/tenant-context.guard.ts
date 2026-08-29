@@ -1,12 +1,14 @@
 import { type CanActivate, type ExecutionContext, Inject, Injectable } from '@nestjs/common';
+import type { Request } from 'express';
 import { and, eq } from 'drizzle-orm';
 import type { Database } from '@foxindex/database';
 import { domains, organizationMembers, projects, urls } from '@foxindex/database';
-import type { Role } from '@foxindex/types';
+import { Role } from '@foxindex/types';
 import { DATABASE } from '../../database/database.module';
 import { AppError, AuthorizationError, NotFoundError } from '../errors/app-error';
 import { ErrorCode } from '@foxindex/types';
 import type { AuthenticatedRequest } from './auth.guard';
+import type { AuthenticatedApiKey } from './api-key.guard';
 
 export interface TenantContext {
   organizationId: string;
@@ -18,33 +20,68 @@ export interface TenantContextRequest extends AuthenticatedRequest {
   tenant: TenantContext;
 }
 
+/** Extends the base Express Request (so .params etc. are always present) — only user/apiKey are optional, since exactly one is set depending on which guard ran. */
+interface SessionOrApiKeyRequest extends Request {
+  user?: AuthenticatedRequest['user'];
+  apiKey?: AuthenticatedApiKey;
+}
+
 /**
  * Resolves which organization (and project, where applicable) a request
- * operates on and verifies the authenticated user is a member of it —
- * authorization enforced server-side, never trusting the frontend (constitution
- * §5.5). Must run after AuthGuard (needs request.user) and before RolesGuard
- * (needs request.tenant.role).
+ * operates on and verifies the caller may access it — authorization enforced
+ * server-side, never trusting the frontend (constitution §5.5). Must run
+ * after AuthGuard/ApiKeyGuard (needs request.user or request.apiKey) and
+ * before RolesGuard (needs request.tenant.role).
  *
  * Resolution order: an explicit `:organizationId` route param wins; otherwise
  * `:projectId` is resolved to its owning organization; otherwise `:domainId` or
  * `:urlId` is resolved by walking domain/url -> project -> organizationId.
  * Routes with none of these params (e.g. POST /organizations, which creates a
  * new org) don't use this guard at all.
+ *
+ * Handles two distinct authenticated identities: a human session (checked
+ * against organization_members) or an API key (checked against the key's own
+ * organizationId/projectId scope — an API key was never a member of anything,
+ * it IS the credential). An API-key request is assigned Role.DEVELOPER as a
+ * practical default so it satisfies the same @Roles() checks a human
+ * developer would (submissions is the only route reachable this way) — the
+ * key's own `scopes` (SUBMIT_URLS/READ_ONLY) are a separate, stricter check
+ * applied where it matters (see SubmissionsController), not a replacement for
+ * this role.
  */
 @Injectable()
 export class TenantContextGuard implements CanActivate {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const request = context.switchToHttp().getRequest<SessionOrApiKeyRequest>();
     const params = request.params as Record<string, string | undefined>;
 
     const resolved = await this.resolveOrganizationAndProject(params);
 
+    if (request.apiKey) {
+      if (request.apiKey.organizationId !== resolved.organizationId) {
+        throw new AuthorizationError();
+      }
+      if (
+        request.apiKey.projectId &&
+        resolved.projectId &&
+        request.apiKey.projectId !== resolved.projectId
+      ) {
+        throw new AuthorizationError();
+      }
+      (request as SessionOrApiKeyRequest & { tenant: TenantContext }).tenant = {
+        organizationId: resolved.organizationId,
+        projectId: resolved.projectId,
+        role: Role.DEVELOPER,
+      };
+      return true;
+    }
+
     const membership = await this.db.query.organizationMembers.findFirst({
       where: and(
         eq(organizationMembers.organizationId, resolved.organizationId),
-        eq(organizationMembers.userId, request.user.id),
+        eq(organizationMembers.userId, request.user!.id),
       ),
     });
 
@@ -52,7 +89,7 @@ export class TenantContextGuard implements CanActivate {
       throw new AuthorizationError();
     }
 
-    (request as TenantContextRequest).tenant = {
+    (request as SessionOrApiKeyRequest & { tenant: TenantContext }).tenant = {
       organizationId: resolved.organizationId,
       projectId: resolved.projectId,
       role: membership.role,

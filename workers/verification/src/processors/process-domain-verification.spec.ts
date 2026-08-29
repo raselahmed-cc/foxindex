@@ -17,17 +17,20 @@ function makeRepository(): VerificationRepository & {
   recordAttempt: ReturnType<typeof vi.fn>;
   markDomainFailed: ReturnType<typeof vi.fn>;
   markDomainVerified: ReturnType<typeof vi.fn>;
+  recordDomainVerifiedAudit: ReturnType<typeof vi.fn>;
 } {
   return {
     findDomainById: vi.fn(),
     recordAttempt: vi.fn().mockResolvedValue(undefined),
     markDomainFailed: vi.fn().mockResolvedValue(undefined),
     markDomainVerified: vi.fn().mockResolvedValue(undefined),
+    recordDomainVerifiedAudit: vi.fn().mockResolvedValue(undefined),
   };
 }
 
 const domain = {
   id: 'dom_1',
+  organizationId: 'org_1',
   hostname: 'example.com',
   indexnowKey: 'a'.repeat(32),
   indexnowKeyLocation: null,
@@ -69,6 +72,7 @@ describe('processDomainVerification', () => {
     expect(repository.recordAttempt).toHaveBeenCalledWith(
       expect.objectContaining({ status: DomainVerificationStatus.VERIFIED }),
     );
+    expect(repository.recordDomainVerifiedAudit).toHaveBeenCalledWith('org_1', 'dom_1', 'example.com');
   });
 
   it('marks FAILED (not retryable) on a 404 — the file just is not there yet', async () => {

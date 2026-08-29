@@ -1,10 +1,11 @@
 import { eq } from 'drizzle-orm';
 import type { Database } from '@foxindex/database';
-import { domainVerifications, domains } from '@foxindex/database';
+import { auditLogs, domainVerifications, domains } from '@foxindex/database';
 import { DomainVerificationStatus, type DomainVerificationMethod } from '@foxindex/types';
 
 export interface DomainRow {
   id: string;
+  organizationId: string;
   hostname: string;
   indexnowKey: string;
   indexnowKeyLocation: string | null;
@@ -33,6 +34,8 @@ export interface VerificationRepository {
   /** Does NOT touch verifiedAt — preserves "last successfully verified" history through a later failed recheck. */
   markDomainFailed(domainId: string): Promise<void>;
   markDomainVerified(domainId: string, verifiedAt: Date): Promise<void>;
+  /** constitution §40's domain.verified audit action — the worker's own write path, since it has no shared DI with apps/api's AuditLogService. */
+  recordDomainVerifiedAudit(organizationId: string, domainId: string, hostname: string): Promise<void>;
 }
 
 export function createDrizzleVerificationRepository(db: Database): VerificationRepository {
@@ -58,6 +61,15 @@ export function createDrizzleVerificationRepository(db: Database): VerificationR
           updatedAt: new Date(),
         })
         .where(eq(domains.id, domainId));
+    },
+    async recordDomainVerifiedAudit(organizationId, domainId, hostname) {
+      await db.insert(auditLogs).values({
+        organizationId,
+        action: 'domain.verified',
+        resourceType: 'domain',
+        resourceId: domainId,
+        metadata: { hostname },
+      });
     },
   };
 }
