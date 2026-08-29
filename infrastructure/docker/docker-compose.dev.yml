@@ -1,0 +1,140 @@
+# Local dev stack. Postgres/Redis/MailDev stand in for Neon/Upstash/a real
+# SMTP relay — only DATABASE_URL/REDIS_URL/SMTP_* differ from staging/prod,
+# nothing in the application images changes (constitution §26/§29). See
+# docker-compose.staging.example.yml for what that looks like.
+#
+# api/worker-*/web deliberately do NOT publish host ports directly — only
+# Caddy does. `docker compose up --scale api=2` would otherwise fail with a
+# host port conflict on the second replica; Caddy round-robins across
+# however many replicas exist via Docker's embedded per-service DNS instead.
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up -d postgres redis maildev
+#   pnpm db:migrate   (from the repo root, against localhost:5432)
+#   docker compose -f docker-compose.dev.yml up --build --scale api=2 --scale worker-submission=2
+#   -> http://localhost/api/v1/health, http://localhost/ (web), http://localhost:1080 (MailDev UI)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: foxindex
+      POSTGRES_PASSWORD: foxindex
+      POSTGRES_DB: foxindex
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U foxindex']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --maxmemory-policy noeviction
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  maildev:
+    image: maildev/maildev
+    ports:
+      - '1080:1080' # web UI
+      - '1025:1025' # SMTP
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.api
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: info
+      API_PORT: 3001
+      CORS_ORIGIN: http://localhost
+      DATABASE_URL: postgres://foxindex:foxindex@postgres:5432/foxindex
+      REDIS_URL: redis://redis:6379
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-only-change-me-to-a-long-random-string}
+      # Bare origin — Better Auth appends /api/auth itself (confirmed via
+      # local, non-Docker testing: BETTER_AUTH_URL=http://localhost:3001
+      # produced working /api/auth/verify-email links).
+      BETTER_AUTH_URL: http://localhost
+      SMTP_HOST: maildev
+      SMTP_PORT: 1025
+      SMTP_FROM: FoxIndex <no-reply@foxindex.dev>
+      INDEXNOW_API_BASE_URL: https://api.indexnow.org/indexnow
+    expose:
+      - '3001'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker-submission:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.worker
+      args:
+        WORKER_NAME: submission
+    environment:
+      LOG_LEVEL: info
+      DATABASE_URL: postgres://foxindex:foxindex@postgres:5432/foxindex
+      REDIS_URL: redis://redis:6379
+      SUBMISSION_WORKER_CONCURRENCY: 5
+      INDEXNOW_API_BASE_URL: https://api.indexnow.org/indexnow
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker-verification:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.worker
+      args:
+        WORKER_NAME: verification
+    environment:
+      LOG_LEVEL: info
+      DATABASE_URL: postgres://foxindex:foxindex@postgres:5432/foxindex
+      REDIS_URL: redis://redis:6379
+      VERIFICATION_WORKER_CONCURRENCY: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.web
+      args:
+        # Bare origin — apps/web's apiClient appends /api/v1 itself. Must be
+        # the browser-reachable address (Caddy), not the internal `api`
+        # service name — see Dockerfile.web's own note.
+        NEXT_PUBLIC_API_URL: http://localhost
+    environment:
+      NODE_ENV: development
+    expose:
+      - '3000'
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - api
+      - web
+
+volumes:
+  postgres-data:

@@ -1,0 +1,82 @@
+# Documents what changes moving from local dev to staging/prod — copy this to
+# docker-compose.staging.yml and fill in real values; it is NOT run by CI or
+# referenced anywhere automatically. Compare against docker-compose.dev.yml:
+# the only differences are (1) postgres/redis/maildev containers are removed
+# entirely (Neon/Upstash/a real SMTP relay are external managed services —
+# constitution §26 says never containerize them) and (2) the env vars that
+# pointed at those local containers now point at the managed ones. No
+# application image changes either way.
+
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.api
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: info
+      API_PORT: 3001
+      CORS_ORIGIN: https://app.foxindex.example
+      DATABASE_URL: ${DATABASE_URL} # Neon pooled connection string, ?sslmode=require
+      REDIS_URL: ${REDIS_URL} # Upstash rediss:// (TLS) URL
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET} # long, random — never the dev default
+      BETTER_AUTH_URL: https://app.foxindex.example
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_FROM: FoxIndex <no-reply@foxindex.example>
+      INDEXNOW_API_BASE_URL: https://api.indexnow.org/indexnow
+    expose:
+      - '3001'
+
+  worker-submission:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.worker
+      args:
+        WORKER_NAME: submission
+    environment:
+      LOG_LEVEL: info
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      SUBMISSION_WORKER_CONCURRENCY: 10
+      INDEXNOW_API_BASE_URL: https://api.indexnow.org/indexnow
+
+  worker-verification:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.worker
+      args:
+        WORKER_NAME: verification
+    environment:
+      LOG_LEVEL: info
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      VERIFICATION_WORKER_CONCURRENCY: 10
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.web
+      args:
+        NEXT_PUBLIC_API_URL: https://app.foxindex.example
+    environment:
+      NODE_ENV: production
+    expose:
+      - '3000'
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile.staging:/etc/caddy/Caddyfile:ro # a real Caddyfile with your domain + automatic HTTPS
+      - caddy-data:/data
+    depends_on:
+      - api
+      - web
+
+volumes:
+  caddy-data:

@@ -1,0 +1,19 @@
+# Parameterized by WORKER_NAME (submission | verification) rather than one
+# Dockerfile per worker — the two are structurally identical.
+FROM node:22-alpine AS build
+RUN corepack enable
+WORKDIR /app
+COPY . .
+RUN pnpm install --frozen-lockfile
+ARG WORKER_NAME
+RUN pnpm --filter @foxindex/worker-${WORKER_NAME}... build
+
+FROM node:22-alpine AS runtime
+RUN corepack enable
+WORKDIR /app
+ENV NODE_ENV=production
+ARG WORKER_NAME
+ENV WORKER_NAME=${WORKER_NAME}
+COPY --from=build /app /app
+# Shell form so ${WORKER_NAME} is substituted at container start.
+CMD node workers/${WORKER_NAME}/dist/main.js
