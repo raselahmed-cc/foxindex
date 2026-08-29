@@ -1,0 +1,24 @@
+{
+  "name": "@foxindex/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test:e2e": "playwright test",
+    "key-server": "tsx fixtures/servers/key-file-server.ts",
+    "indexnow-mock": "tsx fixtures/servers/indexnow-mock-server.ts",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@foxindex/database": "workspace:*",
+    "drizzle-orm": "0.45.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "@types/node": "22.20.1",
+    "dotenv": "17.4.2",
+    "maildev": "2.2.1",
+    "tsx": "4.23.12",
+    "typescript": "5.9.3"
+  }
+}

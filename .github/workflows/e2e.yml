@@ -1,0 +1,71 @@
+name: E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  # No Neon/Upstash in CI — plain service containers are enough for a full
+  # golden-path run and keep this workflow independent of any real account.
+  DATABASE_URL: postgres://foxindex:foxindex@localhost:5432/foxindex
+  REDIS_URL: redis://localhost:6379
+  BETTER_AUTH_SECRET: ci-only-not-a-real-secret-0123456789
+  BETTER_AUTH_URL: http://localhost:3001
+  CORS_ORIGIN: http://localhost:3000
+  NEXT_PUBLIC_API_URL: http://localhost:3001
+  API_PORT: '3001'
+  WEB_PORT: '3000'
+  NODE_ENV: test
+  LOG_LEVEL: info
+  SMTP_HOST: localhost
+  SMTP_PORT: '1025'
+  SMTP_FROM: 'FoxIndex <no-reply@foxindex.dev>'
+  # Real IndexNow default; playwright.config.ts overrides this to the local
+  # mock server only for the submission worker's own process env.
+  INDEXNOW_API_BASE_URL: https://api.indexnow.org/indexnow
+
+jobs:
+  e2e:
+    # Deliberately not required by branch protection alongside ci.yml yet —
+    # this boots seven processes (API, web, two workers, MailDev, two fixture
+    # servers) end to end, which is slower and has more moving parts than a
+    # unit-test job. Graduate it into the required gate once it's proven stable.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: foxindex
+          POSTGRES_PASSWORD: foxindex
+          POSTGRES_DB: foxindex
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U foxindex"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm turbo run build
+      - run: pnpm db:migrate
+      - run: pnpm --filter @foxindex/e2e exec playwright install --with-deps chromium
+      - run: pnpm --filter @foxindex/e2e run test:e2e
+        env:
+          CI: 'true'
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: tests/e2e/playwright-report/
+          retention-days: 7

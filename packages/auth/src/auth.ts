@@ -23,6 +23,12 @@ export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: 'pg' }),
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL,
+  // Better Auth only trusts its own baseURL's origin by default — the web
+  // app calls it cross-origin (different port), so that origin must be
+  // listed explicitly or every request gets rejected as "Invalid origin"
+  // regardless of CORS headers, which is a separate check Better Auth does
+  // on top of CORS, not instead of it.
+  trustedOrigins: [process.env.CORS_ORIGIN ?? 'http://localhost:3000'],
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,

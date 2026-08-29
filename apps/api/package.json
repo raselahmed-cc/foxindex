@@ -28,6 +28,8 @@
     "@nestjs/swagger": "12.0.1",
     "better-auth": "1.4.22",
     "bullmq": "6.3.1",
+    "cors": "2.8.6",
+    "dotenv": "17.4.2",
     "drizzle-orm": "0.45.2",
     "express": "5.2.1",
     "ioredis": "6.0.0",
@@ -37,6 +39,7 @@
   },
   "devDependencies": {
     "@nestjs/testing": "12.0.1",
+    "@types/cors": "2.8.19",
     "@types/express": "5.0.6",
     "@types/node": "22.20.1",
     "@types/supertest": "7.2.1",

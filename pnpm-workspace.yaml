@@ -3,3 +3,4 @@ packages:
   - "workers/submission"
   - "workers/verification"
   - "packages/*"
+  - "tests/e2e"

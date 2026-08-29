@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "module": "commonjs",
+    "moduleResolution": "node"
+  },
+  "references": [{ "path": "../../packages/database" }],
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules"]
+}
