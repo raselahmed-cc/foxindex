@@ -15,7 +15,11 @@ entity list. See `docs/architecture.md` for what's built vs. deferred, and
 
 - Node.js >= 22
 - pnpm 9.15.4 (`corepack enable` or `npm install -g pnpm@9.15.4`)
-- Docker (for local Postgres/Redis/MailDev and the full compose stack)
+- Docker (for local Postgres/Redis/MailDev and the full compose stack) — **or**, if
+  Docker/virtualization isn't available on your machine, point `DATABASE_URL`/`REDIS_URL`
+  in `.env` at free-tier [Neon](https://neon.tech) (Postgres) and [Upstash](https://upstash.com)
+  (Redis, use the `rediss://` TLS URL) instead — no code changes needed either way, and run
+  `npx maildev` locally in place of the compose service for email testing.
 
 ## Getting started
 

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import {
   createOrganizationSchema,
   updateOrganizationSchema,
@@ -18,7 +18,14 @@ import { OrganizationsService } from './organizations.service';
 
 @Controller('organizations')
 export class OrganizationsController {
-  constructor(private readonly organizations: OrganizationsService) {}
+  // Explicit @Inject(ClassName), not just relying on implicit type-based
+  // reflection: found via live testing that tsx/esbuild's decorator-metadata
+  // handling (used by `pnpm dev`) does not reliably preserve a class import
+  // used only as a constructor parameter's type, leaving the property
+  // undefined at runtime with no error at boot. tsc (the real build) handles
+  // it correctly, but the gap isn't worth relying on — this is now a firm
+  // convention for every Nest-injected class in apps/api.
+  constructor(@Inject(OrganizationsService) private readonly organizations: OrganizationsService) {}
 
   @Post()
   @UseGuards(AuthGuard)

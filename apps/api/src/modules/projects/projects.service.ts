@@ -1,16 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { CreateProjectInput, UpdateProjectInput } from '@foxindex/validation';
 import { NotFoundError } from '../../common/errors/app-error';
-// Regular imports — constructor-injected, see organizations.service.ts for why
-// `import type` here would silently break Nest's DI.
 import { AuditLogService } from '../audit-logs/audit-log.service';
 import { ProjectsRepository } from './projects.repository';
 
 @Injectable()
 export class ProjectsService {
+  // Explicit @Inject(ClassName) on every param — see organizations.controller.ts.
   constructor(
-    private readonly repository: ProjectsRepository,
-    private readonly auditLog: AuditLogService,
+    @Inject(ProjectsRepository) private readonly repository: ProjectsRepository,
+    @Inject(AuditLogService) private readonly auditLog: AuditLogService,
   ) {}
 
   async create(organizationId: string, input: CreateProjectInput, userId: string) {

@@ -1,18 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { CreateOrganizationInput, UpdateOrganizationInput } from '@foxindex/validation';
 import { NotFoundError } from '../../common/errors/app-error';
-// Regular (not `import type`) imports below: these classes are constructor-
-// injected. emitDecoratorMetadata needs the real value to emit
-// design:paramtypes for Nest's DI to resolve them — `import type` erases it
-// entirely and silently breaks injection at boot.
 import { AuditLogService } from '../audit-logs/audit-log.service';
 import { OrganizationsRepository } from './organizations.repository';
 
 @Injectable()
 export class OrganizationsService {
+  // Explicit @Inject(ClassName) on every param — see organizations.controller.ts
+  // for why: tsx/esbuild's decorator-metadata handling doesn't reliably
+  // preserve a class used only as a constructor parameter's type.
   constructor(
-    private readonly repository: OrganizationsRepository,
-    private readonly auditLog: AuditLogService,
+    @Inject(OrganizationsRepository) private readonly repository: OrganizationsRepository,
+    @Inject(AuditLogService) private readonly auditLog: AuditLogService,
   ) {}
 
   async create(input: CreateOrganizationInput, userId: string) {

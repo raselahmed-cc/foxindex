@@ -14,6 +14,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { ProjectsModule } from './modules/projects/projects.module';
+import { DomainsModule } from './modules/domains/domains.module';
+import { QueuesModule } from './queues/queues.module';
 
 @Module({
   imports: [
@@ -21,11 +23,13 @@ import { ProjectsModule } from './modules/projects/projects.module';
     LoggerModule,
     DatabaseModule,
     RedisModule,
+    QueuesModule,
     AuditLogsModule,
     HealthModule,
     AuthModule,
     OrganizationsModule,
     ProjectsModule,
+    DomainsModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
