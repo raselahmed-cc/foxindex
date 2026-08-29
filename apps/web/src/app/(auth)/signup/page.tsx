@@ -21,7 +21,15 @@ export default function SignupPage() {
     event.preventDefault();
     setError(null);
     setLoading(true);
-    const { error: signUpError } = await signUp.email({ email, password, name });
+    // Without callbackURL, Better Auth's verification email links redirect to
+    // '/' on the API's own origin after verifying (no route there — "Cannot
+    // GET /"), instead of back to this app. See docs/adr/0009.
+    const { error: signUpError } = await signUp.email({
+      email,
+      password,
+      name,
+      callbackURL: `${window.location.origin}/login`,
+    });
     setLoading(false);
     if (signUpError) {
       setError(signUpError.message ?? 'Could not create your account');
