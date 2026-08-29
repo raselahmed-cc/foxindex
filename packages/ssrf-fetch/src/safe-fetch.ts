@@ -1,6 +1,20 @@
 import * as http from 'node:http';
 import * as https from 'node:https';
+import { setDefaultAutoSelectFamily } from 'node:net';
 import { isDnsValidationFailure, resolveAndValidateHostname } from './dns-pin';
+
+/**
+ * Node >=20's Happy Eyeballs (autoSelectFamily) races multiple resolved
+ * addresses and, when active, calls a custom `lookup` option with a different
+ * callback shape (an array of {address, family}) than the classic single
+ * (err, address, family) tuple this module relies on for connection pinning —
+ * since every request here has already been resolved to exactly one
+ * validated address, there's nothing to race. This is process-global (not
+ * per-request — `autoSelectFamily` isn't part of http.RequestOptions' type,
+ * and setting Node's default is the documented way to control it), which is
+ * safe: nothing else in these worker/API processes needs Happy Eyeballs.
+ */
+setDefaultAutoSelectFamily(false);
 
 export type SafeFetchErrorCode =
   | 'SSRF_BLOCKED'

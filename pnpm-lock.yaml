@@ -318,6 +318,52 @@ importers:
         specifier: 4.1.11
         version: 4.1.11(@types/node@22.20.1)(@vitest/coverage-v8@4.1.11)(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))
 
+  workers/verification:
+    dependencies:
+      '@foxindex/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@foxindex/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@foxindex/logger':
+        specifier: workspace:*
+        version: link:../../packages/logger
+      '@foxindex/queue':
+        specifier: workspace:*
+        version: link:../../packages/queue
+      '@foxindex/ssrf-fetch':
+        specifier: workspace:*
+        version: link:../../packages/ssrf-fetch
+      '@foxindex/types':
+        specifier: workspace:*
+        version: link:../../packages/types
+      bullmq:
+        specifier: 6.3.1
+        version: 6.3.1(ioredis@6.0.0)(pg@8.23.0)
+      dotenv:
+        specifier: 17.4.2
+        version: 17.4.2
+      drizzle-orm:
+        specifier: 0.45.2
+        version: 0.45.2(@prisma/client@5.22.0)(@types/pg@8.23.1)(better-sqlite3@12.11.1)(kysely@0.28.17)(pg@8.23.0)
+      ioredis:
+        specifier: 6.0.0
+        version: 6.0.0
+    devDependencies:
+      '@types/node':
+        specifier: 22.20.1
+        version: 22.20.1
+      tsx:
+        specifier: 4.23.12
+        version: 4.23.12
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 4.1.11
+        version: 4.1.11(@types/node@22.20.1)(@vitest/coverage-v8@4.1.11)(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))
+
 packages:
 
   '@asteasolutions/zod-to-openapi@9.1.0':
