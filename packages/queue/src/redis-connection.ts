@@ -7,9 +7,20 @@ import IORedis, { type RedisOptions } from 'ioredis';
  * (`rediss://` TLS URLs) — only REDIS_URL changes between environments.
  */
 export function createRedisConnection(url: string, extra: RedisOptions = {}): IORedis {
-  return new IORedis(url, {
+  const connection = new IORedis(url, {
     maxRetriesPerRequest: null,
     enableReadyCheck: true,
+    connectTimeout: 5000,
     ...extra,
   });
+
+  // ioredis prints "Unhandled error event" straight to the console if nothing
+  // is listening on 'error' — it still retries/reconnects on its own either
+  // way, but callers should route this through structured logging instead of
+  // raw console output. This no-op listener just stops the console spam;
+  // apps that want the events attach their own listener (see apps/api's
+  // RedisModule for the structured-logging version).
+  connection.on('error', () => {});
+
+  return connection;
 }

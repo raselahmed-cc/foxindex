@@ -1,0 +1,46 @@
+{
+  "name": "@foxindex/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@asteasolutions/zod-to-openapi": "9.1.0",
+    "@foxindex/auth": "workspace:*",
+    "@foxindex/config": "workspace:*",
+    "@foxindex/database": "workspace:*",
+    "@foxindex/logger": "workspace:*",
+    "@foxindex/providers": "workspace:*",
+    "@foxindex/queue": "workspace:*",
+    "@foxindex/ssrf-fetch": "workspace:*",
+    "@foxindex/types": "workspace:*",
+    "@foxindex/validation": "workspace:*",
+    "@nestjs/common": "12.0.1",
+    "@nestjs/config": "12.0.0",
+    "@nestjs/core": "12.0.1",
+    "@nestjs/platform-express": "12.0.1",
+    "@nestjs/swagger": "12.0.1",
+    "bullmq": "6.3.1",
+    "drizzle-orm": "0.45.2",
+    "ioredis": "6.0.0",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "12.0.1",
+    "@types/express": "5.0.6",
+    "@types/node": "22.20.1",
+    "@types/supertest": "7.2.1",
+    "supertest": "7.2.2",
+    "tsx": "4.23.12",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}

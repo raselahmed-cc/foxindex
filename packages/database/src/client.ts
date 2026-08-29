@@ -9,6 +9,8 @@ export interface CreateDbClientOptions {
   /** Neon and most managed Postgres providers require TLS; local dev does not. */
   ssl?: boolean;
   max?: number;
+  /** Fail fast instead of hanging when Postgres is unreachable (constitution §30). */
+  connectionTimeoutMillis?: number;
 }
 
 /**
@@ -23,7 +25,13 @@ export function createDbClient(options: CreateDbClientOptions): { db: Database; 
     connectionString: options.connectionString,
     ssl: options.ssl ? { rejectUnauthorized: true } : undefined,
     max: options.max ?? 10,
+    connectionTimeoutMillis: options.connectionTimeoutMillis ?? 5000,
   });
+
+  // pg's Pool emits 'error' for problems on idle clients (e.g. the backend
+  // restarting) — without a listener, Node treats it as an unhandled error and
+  // crashes the process. Never let a transient DB blip take down the API.
+  pool.on('error', () => {});
 
   const db = drizzle(pool, { schema });
 
