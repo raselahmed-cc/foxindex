@@ -1,65 +1,69 @@
 # FoxIndex
 
-Enterprise multi-tenant SaaS for fast, legitimate URL discovery submission (IndexNow),
-domain verification, and index-status monitoring.
+Multi-tenant SaaS for fast, legitimate URL discovery/indexing submission
+(via IndexNow), domain verification, and index-status monitoring. See
+[docs/architecture.md](./docs/architecture.md) for what's actually built
+and how it fits together.
 
-## Phase 1 scope
+## Running locally — no Docker required
 
-This is the "walking skeleton" phase: the full request path is proven end-to-end for one
-golden path — signup → organization → project → domain → verify → submit URL → IndexNow
-push → status visible — with the repo/DB/module structure laid out for the platform's full
-entity list. See `docs/architecture.md` for what's built vs. deferred, and
-`docs/future-modules.md` / `docs/future-schema.md` for what's intentionally not built yet.
+Everything talks to managed services via plain connection strings
+(`DATABASE_URL` for Neon Postgres, `REDIS_URL` for Upstash Redis), so
+nothing here needs a container. Copy `.env.example` to `.env` and fill in
+real values first.
 
-## Requirements
+**First time (or after pulling schema changes):**
 
-- Node.js >= 22
-- pnpm 9.15.4 (`corepack enable` or `npm install -g pnpm@9.15.4`)
-- Docker (for local Postgres/Redis/MailDev and the full compose stack) — **or**, if
-  Docker/virtualization isn't available on your machine, point `DATABASE_URL`/`REDIS_URL`
-  in `.env` at free-tier [Neon](https://neon.tech) (Postgres) and [Upstash](https://upstash.com)
-  (Redis, use the `rediss://` TLS URL) instead — no code changes needed either way, and run
-  `npx maildev` locally in place of the compose service for email testing.
-
-## Getting started
-
-```bash
+```sh
 pnpm install
-cp .env.example .env
-docker compose -f infrastructure/docker/docker-compose.dev.yml up -d postgres redis maildev
+pnpm turbo run build   # packages resolve to dist/ — apps/workers won't start without this
 pnpm db:migrate
+```
+
+**Every time you want to run it:**
+
+```sh
+# Terminal 1 — catches verification/reset emails Better Auth sends.
+# Web UI at http://localhost:1080
+pnpm --filter @foxindex/e2e exec maildev
+
+# Terminal 2 — API, web app, and both workers together
 pnpm dev
 ```
 
-- API: http://localhost:3001/api/v1 (Swagger at `/api/v1/docs`)
-- Web: http://localhost:3000
-- MailDev UI (verification/reset emails in dev): http://localhost:1080
+- Web app: http://localhost:3000
+- API: http://localhost:3001 (OpenAPI docs at `/api/docs`)
+- MailDev inbox: http://localhost:1080 — sign up, then open the
+  verification email here and click the link (Better Auth requires a
+  verified email before login)
 
-## Workspace layout
+`pnpm dev` (`turbo run dev`) does **not** rebuild `packages/*` on change —
+it only watches `apps/api`, `apps/web`, and the two workers' own source.
+If you edit a package (e.g. `packages/database`), rebuild it before the
+change is visible: `pnpm --filter @foxindex/<package> build`.
 
+**Optional — actually run Docker instead:** `infrastructure/docker/` has
+the full compose stack (local Postgres/Redis/MailDev containers, or point
+it at Neon/Upstash the same way — see
+`docker-compose.staging.example.yml`). It's written and structurally
+validated but has never been run in this development environment (no
+Docker daemon available here — see
+[docs/architecture.md](./docs/architecture.md#whats-live-verified-vs-what-isnt)).
+
+## Testing
+
+```sh
+pnpm turbo run lint typecheck test   # unit tests, no external services needed
+pnpm test:e2e                        # full Playwright run — boots everything itself, see tests/e2e/
 ```
-apps/web          Next.js dashboard
-apps/api          NestJS API
-workers/          BullMQ workers (submission, verification — active; crawler/sitemap/diagnostics — Phase 2 stubs)
-packages/         Shared libraries (database, auth, queue, providers, validation, ssrf-fetch, config, logger, types)
-infrastructure/   Docker, Terraform (Phase 2+), Cloudflare (Phase 2+)
-docs/             Architecture, future modules/schema, ADRs
-tests/e2e/         Playwright golden-path test
-```
 
-## Common commands
+## Docs
 
-```bash
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
-pnpm test:e2e
-```
-
-## Documentation
-
-- [`docs/architecture.md`](docs/architecture.md)
-- [`docs/future-modules.md`](docs/future-modules.md)
-- [`docs/future-schema.md`](docs/future-schema.md)
-- [`docs/adr/`](docs/adr/)
+- [docs/architecture.md](./docs/architecture.md) — what's built, request
+  flow, data model, what's live-verified vs. not
+- [docs/future-modules.md](./docs/future-modules.md) /
+  [docs/future-schema.md](./docs/future-schema.md) — what's deliberately
+  deferred past Phase 1
+- [docs/deployment.md](./docs/deployment.md) — current (non-)deployment
+  state
+- [docs/adr/](./docs/adr/) — why things are built the way they are

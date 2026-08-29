@@ -72,10 +72,13 @@ test.describe('golden path', () => {
     await setDomainKeyLocation(domainId, keyFileUrl);
 
     // --- verify domain (async — the verification worker polls the key file) ---
+    // .first() rather than a single strict match: once verification succeeds,
+    // "VERIFIED" legitimately appears twice (the header badge and the new row
+    // in the verification-history list below it) — either is proof enough.
     await page.getByRole('button', { name: 'Verify now' }).click();
     await expect(async () => {
       await page.reload();
-      await expect(page.getByText('VERIFIED', { exact: true })).toBeVisible();
+      await expect(page.getByText('VERIFIED', { exact: true }).first()).toBeVisible();
     }).toPass({ timeout: 30_000, intervals: [1500] });
 
     // --- submit a URL ---
@@ -89,9 +92,11 @@ test.describe('golden path', () => {
     await page.locator('a[href*="/submissions/"]').first().click();
 
     // --- submission reaches SUBMITTED (async — the submission worker calls IndexNow) ---
+    // Same .first() reasoning as domain verification above: the header badge
+    // and the attempt-history row both legitimately show "SUBMITTED".
     await expect(async () => {
       await page.reload();
-      await expect(page.getByText('SUBMITTED', { exact: true })).toBeVisible();
+      await expect(page.getByText('SUBMITTED', { exact: true }).first()).toBeVisible();
     }).toPass({ timeout: 30_000, intervals: [1500] });
 
     // --- the push actually reached the (mocked) IndexNow endpoint for this host ---

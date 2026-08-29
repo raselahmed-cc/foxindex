@@ -203,3 +203,11 @@ module's `providers` array. Both were invisible under `tsc` and only
 surfaced under `tsx watch` (the dev runtime) or via Nest's guard
 instantiation semantics — the kind of thing that's easy to reintroduce
 without the ADR.
+
+A third, related bug in the same family: `apps/api`'s `.env` loading
+originally looked correct (same source-position pattern the workers use
+successfully) but silently failed under plain `pnpm dev` — masked for a
+while because the E2E harness's parent process happened to pre-populate
+`process.env` before the API ever started. See
+[ADR 0008](./adr/0008-env-loading-bootstrap-shim.md) for why the fix is a
+dependency-free `bootstrap.ts` shim, not another source-position trick.

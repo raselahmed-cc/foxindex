@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "build": "tsc -b",
-    "dev": "tsx watch src/main.ts",
-    "start": "node dist/main.js",
+    "dev": "tsx watch src/bootstrap.ts",
+    "start": "node dist/bootstrap.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
@@ -29,7 +29,6 @@
     "better-auth": "1.4.22",
     "bullmq": "6.3.1",
     "cors": "2.8.6",
-    "dotenv": "17.4.2",
     "drizzle-orm": "0.45.2",
     "express": "5.2.1",
     "ioredis": "6.0.0",

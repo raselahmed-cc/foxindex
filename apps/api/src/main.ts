@@ -1,11 +1,6 @@
-import { resolve } from 'node:path';
-import { config as loadDotenv } from 'dotenv';
-
-// Must run before any other import — @foxindex/auth reads process.env at
-// module-load time (its top-level betterAuth(...) call), which happens before
-// ConfigModule.forRoot() below ever runs. Same pattern as workers/*/src/main.ts.
-loadDotenv({ path: resolve(__dirname, '../../../.env'), quiet: true });
-
+// .env is loaded by bootstrap.ts, which requires this file only afterward —
+// see the comment there for why that has to be a separate, import-free file
+// rather than a few lines at the top of this one.
 import 'reflect-metadata';
 import cors from 'cors';
 import express from 'express';
