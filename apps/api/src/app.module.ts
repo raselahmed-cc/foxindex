@@ -11,6 +11,9 @@ import { RedisModule } from './redis/redis.module';
 import { LoggerModule } from './logger/logger.module';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
+import { OrganizationsModule } from './modules/organizations/organizations.module';
+import { ProjectsModule } from './modules/projects/projects.module';
 
 @Module({
   imports: [
@@ -18,8 +21,11 @@ import { AuthModule } from './modules/auth/auth.module';
     LoggerModule,
     DatabaseModule,
     RedisModule,
+    AuditLogsModule,
     HealthModule,
     AuthModule,
+    OrganizationsModule,
+    ProjectsModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

@@ -55,5 +55,21 @@ module.exports = tseslint.config(
       },
     },
   },
+  {
+    // NestJS (apps/api, and any future Nest-based app) resolves constructor
+    // dependencies via reflection over emitDecoratorMetadata's
+    // design:paramtypes, which needs the real class value at runtime. This
+    // rule's autofix converts a class import to `import type` whenever it
+    // looks type-only from a pure syntax standpoint — which a constructor
+    // parameter annotation does, even though Nest needs it as a value too.
+    // Applying the autofix here silently breaks dependency injection at
+    // boot (learned the hard way: an unguarded `eslint --fix` converted
+    // six working provider imports into broken ones). Off entirely rather
+    // than "warn", since nothing here should ever apply this fix.
+    files: ['apps/api/**/*.ts'],
+    rules: {
+      '@typescript-eslint/consistent-type-imports': 'off',
+    },
+  },
   eslintConfigPrettier,
 );

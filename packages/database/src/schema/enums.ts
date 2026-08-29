@@ -14,8 +14,8 @@ import {
  * re-listing the literals here, so the DB enum and the application enum can never
  * drift out of sync.
  */
-function pgEnumValues<T extends Record<string, string>>(source: T): [string, ...string[]] {
-  return Object.values(source) as [string, ...string[]];
+function pgEnumValues<T extends Record<string, string>>(source: T): [T[keyof T], ...T[keyof T][]] {
+  return Object.values(source) as [T[keyof T], ...T[keyof T][]];
 }
 
 export const roleEnum = pgEnum('role', pgEnumValues(Role));
