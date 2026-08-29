@@ -31,8 +31,10 @@ export enum DomainVerificationStatus {
  * status-checking provider like Google Search Console exists in Phase 2), but no
  * Phase 1 code path ever produces them — IndexNow has no status-confirmation API,
  * so Phase 1 submissions terminate at SUBMITTED or FAILED. See
- * workers/submission's own tests for the assertion that Phase 1 code never reaches
- * INDEXED/NOT_INDEXED, and docs/adr/ for why the state machine still models them.
+ * workers/submission/src/processors/process-submission.spec.ts for the test
+ * asserting Phase 1 code never reaches MONITORING/INDEXED/NOT_INDEXED, and
+ * docs/adr/0001-indexnow-only-instant-submission.md for why the state machine
+ * still models them.
  */
 export enum UrlSubmissionState {
   RECEIVED = 'RECEIVED',

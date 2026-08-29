@@ -180,4 +180,44 @@ describe('processSubmission', () => {
       }),
     );
   });
+
+  it('never sets a submission state that requires a status-checking provider — Phase 1 has none, so MONITORING/INDEXED/NOT_INDEXED must stay unreachable (see docs/adr/0001)', async () => {
+    const scenarios: SubmissionResult[] = [
+      { success: true, acceptedUrls: [url.normalizedUrl], rejectedUrls: [], retryable: false, providerStatusCode: 200 },
+      {
+        success: false,
+        acceptedUrls: [],
+        rejectedUrls: [{ url: url.normalizedUrl, reason: 'bad key' }],
+        retryable: false,
+        errorCode: 'VALIDATION_ERROR',
+        errorMessage: 'IndexNow rejected the request (HTTP 403)',
+      },
+    ];
+
+    const observedStates = new Set<UrlSubmissionState>();
+
+    for (const result of scenarios) {
+      const scenarioRepository = makeRepository();
+      scenarioRepository.findSubmissionById.mockResolvedValue(submission);
+      scenarioRepository.findUrlById.mockResolvedValue(url);
+      scenarioRepository.findDomainById.mockResolvedValue(domain);
+      const router = makeProviderRouter(result);
+
+      await processSubmission(scenarioRepository, router, logger, payload, 'job_1', 1);
+
+      for (const [, patch] of scenarioRepository.updateSubmission.mock.calls) {
+        if (patch.state) observedStates.add(patch.state);
+      }
+    }
+
+    const statusCheckingStates = new Set([
+      UrlSubmissionState.MONITORING,
+      UrlSubmissionState.INDEXED,
+      UrlSubmissionState.NOT_INDEXED,
+    ]);
+    expect([...observedStates].filter((state) => statusCheckingStates.has(state))).toEqual([]);
+    // Sanity check that this test actually exercised state-setting code paths at all,
+    // so a future refactor that made processSubmission a no-op wouldn't pass vacuously.
+    expect(observedStates.size).toBeGreaterThan(0);
+  });
 });
