@@ -15,7 +15,10 @@ import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { DomainsModule } from './modules/domains/domains.module';
+import { UrlsModule } from './modules/urls/urls.module';
+import { SubmissionsModule } from './modules/submissions/submissions.module';
 import { QueuesModule } from './queues/queues.module';
+import { IdempotencyModule } from './common/idempotency/idempotency.module';
 
 @Module({
   imports: [
@@ -24,12 +27,15 @@ import { QueuesModule } from './queues/queues.module';
     DatabaseModule,
     RedisModule,
     QueuesModule,
+    IdempotencyModule,
     AuditLogsModule,
     HealthModule,
     AuthModule,
     OrganizationsModule,
     ProjectsModule,
     DomainsModule,
+    UrlsModule,
+    SubmissionsModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

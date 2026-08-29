@@ -6,6 +6,8 @@ import './me.openapi';
 import './organizations.openapi';
 import './projects.openapi';
 import './domains.openapi';
+import './urls.openapi';
+import './submissions.openapi';
 
 /**
  * zod-to-openapi and @nestjs/swagger each vendor their own (near-identical,

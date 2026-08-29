@@ -1,7 +1,7 @@
 import { type CanActivate, type ExecutionContext, Inject, Injectable } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
 import type { Database } from '@foxindex/database';
-import { domains, organizationMembers, projects } from '@foxindex/database';
+import { domains, organizationMembers, projects, urls } from '@foxindex/database';
 import type { Role } from '@foxindex/types';
 import { DATABASE } from '../../database/database.module';
 import { AppError, AuthorizationError, NotFoundError } from '../errors/app-error';
@@ -26,10 +26,10 @@ export interface TenantContextRequest extends AuthenticatedRequest {
  * (needs request.tenant.role).
  *
  * Resolution order: an explicit `:organizationId` route param wins; otherwise
- * `:projectId` is resolved to its owning organization; otherwise `:domainId` is
- * resolved by walking domain -> project's organizationId. Routes with none of
- * these params (e.g. POST /organizations, which creates a new org) don't use
- * this guard at all.
+ * `:projectId` is resolved to its owning organization; otherwise `:domainId` or
+ * `:urlId` is resolved by walking domain/url -> project -> organizationId.
+ * Routes with none of these params (e.g. POST /organizations, which creates a
+ * new org) don't use this guard at all.
  */
 @Injectable()
 export class TenantContextGuard implements CanActivate {
@@ -81,6 +81,12 @@ export class TenantContextGuard implements CanActivate {
       });
       if (!domain) throw new NotFoundError('Domain');
       return { organizationId: domain.organizationId, projectId: domain.projectId };
+    }
+
+    if (params.urlId) {
+      const url = await this.db.query.urls.findFirst({ where: eq(urls.id, params.urlId) });
+      if (!url) throw new NotFoundError('URL');
+      return { organizationId: url.organizationId, projectId: url.projectId };
     }
 
     throw new AppError(
