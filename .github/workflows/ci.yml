@@ -1,0 +1,126 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  # Real secrets in the repo's Actions settings once a remote exists — these
+  # placeholders only need to be well-formed enough for zod env validation
+  # and drizzle-kit to accept at CI time; the service containers below are
+  # what unit-test actually talks to.
+  DATABASE_URL: postgres://foxindex:foxindex@localhost:5432/foxindex
+  REDIS_URL: redis://localhost:6379
+  BETTER_AUTH_SECRET: ci-only-not-a-real-secret-0123456789
+  BETTER_AUTH_URL: http://localhost:3001
+  CORS_ORIGIN: http://localhost:3000
+  API_PORT: '3001'
+  NODE_ENV: test
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm turbo run lint
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm turbo run typecheck
+
+  unit-test:
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: foxindex
+          POSTGRES_PASSWORD: foxindex
+          POSTGRES_DB: foxindex
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U foxindex"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm turbo run test
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck, unit-test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm turbo run build
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: [build]
+    strategy:
+      matrix:
+        target: [api, web, worker]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: buildx-${{ matrix.target }}-${{ github.sha }}
+          restore-keys: buildx-${{ matrix.target }}-
+      # No registry configured yet (no remote/deploy target) — this proves the
+      # image builds, nothing more. --load keeps it local; a push step is
+      # added once there's somewhere to push to.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infrastructure/docker/Dockerfile.${{ matrix.target }}
+          push: false
+          load: true
+          tags: foxindex-${{ matrix.target }}:ci
+          build-args: |
+            ${{ matrix.target == 'worker' && 'WORKER_NAME=submission' || '' }}
+            ${{ matrix.target == 'web' && 'NEXT_PUBLIC_API_URL=http://localhost:3001' || '' }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+      - run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm audit --audit-level=high
+      # Container image scanning (Trivy/Snyk) needs a registry + secrets that
+      # don't exist yet (no remote deploy target) — reserved here rather than
+      # built now against nothing:
+      # - uses: aquasecurity/trivy-action@master
+      #   with:
+      #     image-ref: foxindex-api:ci
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [docker-build, security-scan]
+    if: false # no deploy target exists yet — placeholder only, see docs/deployment.md
+    steps:
+      - run: echo "No deploy target configured yet."

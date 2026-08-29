@@ -1,0 +1,23 @@
+name: Setup
+description: Checkout is done by the caller; this installs pnpm/Node and workspace dependencies with caching.
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 9.15.4
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: pnpm
+
+    - run: pnpm install --frozen-lockfile
+      shell: bash
+
+    - uses: actions/cache@v4
+      with:
+        path: .turbo
+        key: turbo-${{ github.job }}-${{ github.sha }}
+        restore-keys: turbo-${{ github.job }}-
