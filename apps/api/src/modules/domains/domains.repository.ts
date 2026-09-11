@@ -9,7 +9,7 @@ export interface CreateDomainRow {
   projectId: string;
   hostname: string;
   indexnowKey: string;
-  createdByUserId: string;
+  createdByUserId?: string;
 }
 
 @Injectable()
@@ -19,6 +19,31 @@ export class DomainsRepository {
   async create(input: CreateDomainRow) {
     const [domain] = await this.db.insert(domains).values(input).returning();
     return domain;
+  }
+
+  /**
+   * Same onConflictDoNothing-then-refetch shape as UrlsRepository.upsert —
+   * concurrent requests auto-creating a domain for the same new hostname
+   * (docs/adr/0012) race on the (project_id, hostname) unique constraint,
+   * not on an application-level check-then-insert.
+   */
+  async findOrCreate(input: CreateDomainRow): Promise<{ domain: typeof domains.$inferSelect; created: boolean }> {
+    const [inserted] = await this.db
+      .insert(domains)
+      .values(input)
+      .onConflictDoNothing({ target: [domains.projectId, domains.hostname] })
+      .returning();
+    if (inserted) return { domain: inserted, created: true };
+
+    const existing = await this.db.query.domains.findFirst({
+      where: and(eq(domains.projectId, input.projectId), eq(domains.hostname, input.hostname)),
+    });
+    if (!existing) {
+      // Should be unreachable: the insert only no-ops on a conflict with an
+      // existing row matching this exact (projectId, hostname) pair.
+      throw new Error(`Domain findOrCreate race: neither inserted nor found for hostname ${input.hostname}`);
+    }
+    return { domain: existing, created: false };
   }
 
   findAllForProject(projectId: string) {

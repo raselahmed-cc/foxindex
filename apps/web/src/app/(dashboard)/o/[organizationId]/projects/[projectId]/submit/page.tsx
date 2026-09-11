@@ -1,9 +1,9 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient, ApiError } from '@/lib/api-client';
-import type { Domain, SubmitUrlsResult } from '@/lib/types';
+import type { SubmitUrlsResult } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,25 +15,10 @@ export default function SubmitUrlsPage({
 }) {
   const { organizationId, projectId } = use(params);
   const router = useRouter();
-  const [domains, setDomains] = useState<Domain[] | null>(null);
-  const [domainId, setDomainId] = useState('');
   const [urlsText, setUrlsText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SubmitUrlsResult | null>(null);
-
-  useEffect(() => {
-    apiClient.get<Domain[]>(`/projects/${projectId}/domains`).then((all) => {
-      setDomains(all);
-      // Prefer a verified domain as the default selection, but don't require
-      // one to exist — IndexNow itself is the real authorization check, not
-      // FoxIndex's own verification status (see docs/adr/0010). Submitting
-      // for an unverified domain is allowed; it may still fail once IndexNow
-      // looks for the key file and doesn't find it.
-      const preferred = all.find((d) => d.verificationStatus === 'VERIFIED') ?? all[0];
-      if (preferred) setDomainId(preferred.id);
-    });
-  }, [projectId]);
 
   function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -65,8 +50,10 @@ export default function SubmitUrlsPage({
     }
     setLoading(true);
     try {
+      // No domain to pick — each URL's own hostname resolves (or
+      // auto-creates, unverified) its domain, so one batch can freely span
+      // multiple domains (docs/adr/0012).
       const submitResult = await apiClient.post<SubmitUrlsResult>(`/projects/${projectId}/submissions`, {
-        domainId,
         urls,
       });
       setResult(submitResult);
@@ -83,37 +70,16 @@ export default function SubmitUrlsPage({
       <CardHeader>
         <CardTitle>Submit URLs</CardTitle>
         <CardDescription>
-          One URL per line, up to 20 — paste them in or upload a .csv/.txt file. A full batch can take up to
-          a minute or two to process. Each is pushed to IndexNow (Bing, Yandex, Naver, Seznam, Yep) and costs
-          one credit — this confirms the push was accepted, not that any engine has indexed the page yet.
+          One URL per line, up to 20, from any domain — no need to add a domain first, we&apos;ll create one
+          automatically the first time you submit for it (paste them in or upload a .csv/.txt file). A new
+          domain starts unverified: IndexNow will still reject a URL if its domain never actually hosts the
+          key file. A full batch can take up to a minute or two to process. Each accepted URL is pushed to
+          IndexNow (Bing, Yandex, Naver, Seznam, Yep) and costs one credit — this confirms the push was
+          accepted, not that any engine has indexed the page yet.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="domain">Domain</Label>
-            <select
-              id="domain"
-              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
-              value={domainId}
-              onChange={(e) => setDomainId(e.target.value)}
-              required
-            >
-              {domains?.length === 0 && <option value="">No domains yet — add one first</option>}
-              {domains?.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.hostname}
-                  {d.verificationStatus !== 'VERIFIED' ? ' (unverified)' : ''}
-                </option>
-              ))}
-            </select>
-            {domains?.find((d) => d.id === domainId)?.verificationStatus !== 'VERIFIED' && domainId && (
-              <p className="text-sm text-muted-foreground">
-                This domain isn&apos;t verified yet. Submissions are still sent to IndexNow, but it will reject
-                them if the key file isn&apos;t actually hosted at this domain.
-              </p>
-            )}
-          </div>
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
               <Label htmlFor="urls">URLs</Label>
@@ -127,13 +93,13 @@ export default function SubmitUrlsPage({
               required
               rows={8}
               className="rounded-md border border-border bg-background px-3 py-2 font-mono text-sm"
-              placeholder={'https://example.com/page-1\nhttps://example.com/page-2'}
+              placeholder={'https://example.com/page-1\nhttps://another-site.com/page-2'}
               value={urlsText}
               onChange={(e) => setUrlsText(e.target.value)}
             />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" disabled={loading || !domainId}>
+          <Button type="submit" disabled={loading}>
             {loading ? 'Submitting…' : 'Submit'}
           </Button>
         </form>
@@ -143,6 +109,11 @@ export default function SubmitUrlsPage({
             <p>
               {result.submissions.length} accepted, {result.rejected.length} rejected.
             </p>
+            {result.submissions.map((s) => (
+              <p key={s.urlId} className="text-muted-foreground">
+                {s.normalizedUrl} <span className="text-xs">({s.hostname})</span>
+              </p>
+            ))}
             {result.rejected.map((r) => (
               <p key={r.url} className="text-destructive">
                 {r.url}: {r.message}

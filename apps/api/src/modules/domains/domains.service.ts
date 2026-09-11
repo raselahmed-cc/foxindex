@@ -46,6 +46,37 @@ export class DomainsService {
     return { ...domain, keyFileUrl: indexNowKeyFileUrl(domain.hostname, domain.indexnowKey) };
   }
 
+  /**
+   * Submitting a URL no longer requires pre-registering its domain
+   * (docs/adr/0012): this resolves an existing domain by hostname, or
+   * silently creates one (a fresh, unverified IndexNow key) the first time
+   * that hostname is ever submitted. `created` distinguishes the two only
+   * for audit logging — the caller otherwise treats both the same way.
+   */
+  async findOrCreateByHostname(organizationId: string, projectId: string, hostname: string, userId?: string) {
+    const indexnowKey = generateIndexNowKey();
+    const { domain, created } = await this.repository.findOrCreate({
+      organizationId,
+      projectId,
+      hostname,
+      indexnowKey,
+      createdByUserId: userId,
+    });
+
+    if (created) {
+      await this.auditLog.record({
+        organizationId,
+        actorUserId: userId,
+        action: 'domain.created',
+        resourceType: 'domain',
+        resourceId: domain.id,
+        metadata: { hostname: domain.hostname, autoCreatedOnSubmit: true },
+      });
+    }
+
+    return { ...domain, keyFileUrl: indexNowKeyFileUrl(domain.hostname, domain.indexnowKey) };
+  }
+
   findAllForProject(projectId: string) {
     return this.repository.findAllForProject(projectId);
   }

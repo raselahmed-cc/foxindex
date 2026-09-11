@@ -2,8 +2,12 @@ import { z } from 'zod';
 import { MAX_URLS_PER_SUBMISSION_REQUEST } from '@foxindex/config';
 import { UrlSubmissionState } from '@foxindex/types';
 
+/**
+ * No domainId — each URL's own hostname resolves (or auto-creates) its
+ * domain, so a single batch can freely span multiple domains. See
+ * docs/adr/0012-auto-create-domain-on-submit.md.
+ */
 export const submitUrlsSchema = z.object({
-  domainId: z.uuid(),
   urls: z
     .array(z.url())
     .min(1, 'At least one URL is required')

@@ -7,6 +7,7 @@ const acceptedSubmissionSchema = z.object({
   id: z.uuid(),
   urlId: z.uuid(),
   normalizedUrl: z.string(),
+  hostname: z.string(),
   state: z.enum(UrlSubmissionState),
 });
 
@@ -23,7 +24,7 @@ openApiRegistry.registerPath({
   path: '/projects/{projectId}/submissions',
   summary: 'Submit URLs for IndexNow discovery (async — 202, poll status)',
   description:
-    'Validates and normalizes each URL, rejects any that do not belong to the given domain or whose domain is not yet VERIFIED (no row created for those), then enqueues one job per accepted URL. Supports an Idempotency-Key header to make retries safe.',
+    "Validates and normalizes each URL, resolving (or auto-creating, unverified) a domain from each URL's own hostname — a single batch can span multiple domains, none need to be pre-registered. Rejects a URL only if it can't be parsed or the organization is out of credits (no row created for those), then enqueues one job per accepted URL. Supports an Idempotency-Key header to make retries safe.",
   tags: ['Submissions'],
   security: [{ session: [] }, { apiKey: [] }],
   request: {

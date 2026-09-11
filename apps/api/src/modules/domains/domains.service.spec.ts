@@ -71,3 +71,40 @@ describe('DomainsService.requestVerification', () => {
     expect(result).toEqual({ enqueued: true });
   });
 });
+
+describe('DomainsService.findOrCreateByHostname', () => {
+  let repository: { findOrCreate: ReturnType<typeof vi.fn> };
+  let auditLog: { record: ReturnType<typeof vi.fn> };
+  let queue: Queue;
+  let service: DomainsService;
+
+  beforeEach(() => {
+    repository = { findOrCreate: vi.fn() };
+    auditLog = { record: vi.fn().mockResolvedValue(undefined) };
+    queue = { add: vi.fn().mockResolvedValue(undefined) } as unknown as Queue;
+    service = new DomainsService(
+      repository as unknown as DomainsRepository,
+      auditLog as unknown as AuditLogService,
+      queue,
+    );
+  });
+
+  it('records an audit log entry when a new domain is auto-created (docs/adr/0012)', async () => {
+    repository.findOrCreate.mockResolvedValue({ domain: makeDomain({}), created: true });
+
+    const result = await service.findOrCreateByHostname('org_1', 'proj_1', 'example.com', 'user_1');
+
+    expect(result.hostname).toBe('example.com');
+    expect(auditLog.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'domain.created', metadata: expect.objectContaining({ autoCreatedOnSubmit: true }) }),
+    );
+  });
+
+  it('does not record an audit log entry when the domain already existed', async () => {
+    repository.findOrCreate.mockResolvedValue({ domain: makeDomain({}), created: false });
+
+    await service.findOrCreateByHostname('org_1', 'proj_1', 'example.com', 'user_1');
+
+    expect(auditLog.record).not.toHaveBeenCalled();
+  });
+});

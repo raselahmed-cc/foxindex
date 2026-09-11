@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  InvalidUrlError,
-  normalizeHostname,
-  normalizeUrl,
-  urlBelongsToHostname,
-} from './url-normalization';
+import { InvalidUrlError, normalizeHostname, normalizeUrl } from './url-normalization';
 
 describe('normalizeUrl', () => {
   it('lowercases the hostname', () => {
@@ -102,15 +97,5 @@ describe('normalizeHostname', () => {
 
   it('rejects a value containing credentials', () => {
     expect(() => normalizeHostname('user:pass@example.com')).toThrow(InvalidUrlError);
-  });
-});
-
-describe('urlBelongsToHostname', () => {
-  it('matches when the normalized URL host equals the hostname', () => {
-    expect(urlBelongsToHostname('https://example.com/page', 'example.com')).toBe(true);
-  });
-
-  it('does not match a different host', () => {
-    expect(urlBelongsToHostname('https://other.com/page', 'example.com')).toBe(false);
   });
 });

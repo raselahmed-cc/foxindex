@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Queue } from 'bullmq';
 import type { Database } from '@foxindex/database';
-import { normalizeUrl, urlBelongsToHostname, type SubmitUrlsInput } from '@foxindex/validation';
+import { normalizeUrl, type SubmitUrlsInput } from '@foxindex/validation';
 import {
   CreditLedgerReason,
   SubmissionFailureReason,
@@ -28,6 +28,7 @@ export interface AcceptedSubmission {
   id: string;
   urlId: string;
   normalizedUrl: string;
+  hostname: string;
   state: UrlSubmissionState;
 }
 
@@ -51,10 +52,13 @@ export class SubmissionsService {
 
   /**
    * The submission POST flow (constitution §17/§37): normalize + dedupe each
-   * URL, reject anything that doesn't belong to the given domain or that the
-   * organization doesn't have a credit to pay for, then accept + enqueue the
-   * rest. A rejected URL never gets a url_submissions row — rejection happens
-   * before the row would exist, not as a state the row passes through.
+   * URL, resolve (or auto-create) the domain its own hostname belongs to,
+   * reject anything the organization doesn't have a credit to pay for, then
+   * accept + enqueue the rest. A single batch can freely span multiple
+   * domains — there is no one "the domain" for the whole request anymore
+   * (docs/adr/0012). A rejected URL never gets a url_submissions row —
+   * rejection happens before the row would exist, not as a state the row
+   * passes through.
    *
    * Processed sequentially, not with Promise.all — bounded by the request's
    * own URL count cap (packages/validation's MAX_URLS_PER_SUBMISSION_REQUEST),
@@ -69,10 +73,9 @@ export class SubmissionsService {
     input: SubmitUrlsInput,
     actor: SubmissionActor,
   ): Promise<{ submissions: AcceptedSubmission[]; rejected: RejectedUrl[] }> {
-    const domain = await this.domains.findOne(projectId, input.domainId);
-
     const accepted: AcceptedSubmission[] = [];
     const rejected: RejectedUrl[] = [];
+    const touchedDomainIds = new Set<string>();
 
     for (const rawUrl of input.urls) {
       let normalized: ReturnType<typeof normalizeUrl>;
@@ -87,21 +90,16 @@ export class SubmissionsService {
         continue;
       }
 
-      if (!urlBelongsToHostname(normalized.normalizedUrl, domain.hostname)) {
-        rejected.push({
-          url: rawUrl,
-          reason: SubmissionFailureReason.INVALID_URL,
-          message: `URL does not belong to domain ${domain.hostname}`,
-        });
-        continue;
-      }
+      // Auto-resolves (or auto-creates, unverified) the domain for this
+      // URL's own hostname — no domain has to be pre-registered before its
+      // first submission (docs/adr/0012). Domain verification itself is
+      // still not a hard gate (docs/adr/0010) — IndexNow's own key-file
+      // check is the real authorization boundary; ours would only ever
+      // produce an earlier, less informative failure than IndexNow's own.
+      const hostname = new URL(normalized.normalizedUrl).hostname;
+      const domain = await this.domains.findOrCreateByHostname(organizationId, projectId, hostname, actor.userId);
+      touchedDomainIds.add(domain.id);
 
-      // Domain verification is no longer a hard gate here (see docs/adr/0010)
-      // — it's queued and actually sent to IndexNow regardless. IndexNow's own
-      // key-file check is the real authorization boundary; ours was a second,
-      // redundant one that only ever produced an earlier, less informative
-      // failure than the one IndexNow itself would give.
-      //
       // Deduct + upsert + create run in one transaction (docs/adr/0011): the
       // idempotency interceptor explicitly permits a client to retry this
       // exact request on any handler error, and a naive retry after
@@ -177,6 +175,7 @@ export class SubmissionsService {
         id: submission.id,
         urlId: urlRow.id,
         normalizedUrl: urlRow.normalizedUrl,
+        hostname: domain.hostname,
         state: UrlSubmissionState.QUEUED,
       });
     }
@@ -189,7 +188,11 @@ export class SubmissionsService {
         action: 'url.submitted',
         resourceType: 'project',
         resourceId: projectId,
-        metadata: { domainId: domain.id, acceptedCount: accepted.length, rejectedCount: rejected.length },
+        metadata: {
+          domainIds: [...touchedDomainIds],
+          acceptedCount: accepted.length,
+          rejectedCount: rejected.length,
+        },
       });
     }
 

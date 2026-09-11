@@ -59,7 +59,7 @@ export interface SubmissionAttempt {
 }
 
 export interface SubmitUrlsResult {
-  submissions: { id: string; urlId: string; normalizedUrl: string; state: string }[];
+  submissions: { id: string; urlId: string; normalizedUrl: string; hostname: string; state: string }[];
   rejected: { url: string; reason: string; message: string }[];
 }
 

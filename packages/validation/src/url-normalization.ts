@@ -94,8 +94,3 @@ export function normalizeHostname(rawHostname: string): string {
   }
   return parsed.hostname;
 }
-
-/** True if `url`'s normalized hostname matches `hostname` exactly. */
-export function urlBelongsToHostname(normalizedUrl: string, hostname: string): boolean {
-  return new URL(normalizedUrl).hostname === hostname;
-}

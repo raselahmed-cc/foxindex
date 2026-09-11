@@ -29,10 +29,6 @@ export default function ProjectPage({
       .catch((e: Error) => setError(e.message));
   }, [projectId]);
 
-  // Verification isn't required to submit — IndexNow itself is the real
-  // authorization check (docs/adr/0010) — only that a domain exists to pick.
-  const hasAnyDomain = (domains?.length ?? 0) > 0;
-
   return (
     <div className="flex flex-col gap-10">
       {error && <p className="text-sm text-destructive">{error}</p>}
@@ -65,18 +61,10 @@ export default function ProjectPage({
       <section className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Submissions</h1>
-          <Button asChild size="sm" disabled={!hasAnyDomain}>
-            <Link
-              href={hasAnyDomain ? `/o/${organizationId}/projects/${projectId}/submit` : '#'}
-              aria-disabled={!hasAnyDomain}
-            >
-              Submit URLs
-            </Link>
+          <Button asChild size="sm">
+            <Link href={`/o/${organizationId}/projects/${projectId}/submit`}>Submit URLs</Link>
           </Button>
         </div>
-        {!hasAnyDomain && domains !== null && (
-          <p className="text-sm text-muted-foreground">Add a domain before submitting URLs.</p>
-        )}
         {submissions?.length === 0 && <p className="text-sm text-muted-foreground">No submissions yet.</p>}
         <div className="flex flex-col divide-y divide-border rounded-lg border border-border">
           {submissions?.map((submission) => (
