@@ -80,7 +80,7 @@ describe('SubmissionsService.submitUrls', () => {
     expect(queue.add).not.toHaveBeenCalled();
   });
 
-  it('rejects every URL when the domain is not VERIFIED', async () => {
+  it('accepts and enqueues a URL even when the domain is not VERIFIED — IndexNow, not FoxIndex, is the real authorization check (docs/adr/0010)', async () => {
     domains.findOne.mockResolvedValue(makeDomain({ verificationStatus: DomainVerificationStatus.PENDING }));
 
     const result = await service.submitUrls(
@@ -90,14 +90,9 @@ describe('SubmissionsService.submitUrls', () => {
       { userId: 'user_1' },
     );
 
-    expect(result.submissions).toEqual([]);
-    expect(result.rejected).toEqual([
-      {
-        url: 'https://example.com/a',
-        reason: SubmissionFailureReason.DOMAIN_NOT_VERIFIED,
-        message: 'Domain must be verified before submitting URLs',
-      },
-    ]);
+    expect(result.rejected).toEqual([]);
+    expect(result.submissions).toHaveLength(1);
+    expect(queue.add).toHaveBeenCalledTimes(1);
   });
 
   it('handles a mixed batch: accepts valid URLs and rejects invalid ones independently', async () => {

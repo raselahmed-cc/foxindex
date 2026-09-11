@@ -15,7 +15,11 @@ export async function waitForEmailLink(
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
-    const response = await fetch(`${MAILDEV_URL}/api/email`);
+    // maildev@2.2.1's REST API has no /api prefix — just /email. (A stray
+    // npx-cached maildev@3.x, which does use /api/email, was what actually
+    // served earlier local runs via a leftover process Playwright reused —
+    // this only surfaced once a genuinely fresh 2.2.1 instance was running.)
+    const response = await fetch(`${MAILDEV_URL}/email`);
     const emails = (await response.json()) as MailDevEmail[];
     const match = emails
       .filter((email) => email.to.some((to) => to.address === toAddress))
@@ -33,5 +37,5 @@ export async function waitForEmailLink(
 }
 
 export async function clearInbox(): Promise<void> {
-  await fetch(`${MAILDEV_URL}/api/email/all`, { method: 'DELETE' }).catch(() => undefined);
+  await fetch(`${MAILDEV_URL}/email/all`, { method: 'DELETE' }).catch(() => undefined);
 }

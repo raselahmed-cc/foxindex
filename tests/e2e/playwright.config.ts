@@ -14,7 +14,12 @@ const isCI = Boolean(process.env.CI);
 export default defineConfig({
   testDir: '.',
   testMatch: '**/*.spec.ts',
-  timeout: 120_000,
+  // Generous: this test runs the whole golden path against real Neon/Upstash
+  // infra on webServers that just cold-booted — signup's scrypt hashing alone
+  // is given up to 45s (see golden-path.spec.ts), and that's before any of the
+  // async verification/submission polling. 120s was observed too tight for a
+  // full cold run even though no individual step was actually broken.
+  timeout: 240_000,
   expect: { timeout: 20_000 },
   fullyParallel: false,
   workers: 1,

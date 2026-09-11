@@ -24,9 +24,14 @@ export default function SubmitUrlsPage({
 
   useEffect(() => {
     apiClient.get<Domain[]>(`/projects/${projectId}/domains`).then((all) => {
-      const verified = all.filter((d) => d.verificationStatus === 'VERIFIED');
-      setDomains(verified);
-      if (verified[0]) setDomainId(verified[0].id);
+      setDomains(all);
+      // Prefer a verified domain as the default selection, but don't require
+      // one to exist — IndexNow itself is the real authorization check, not
+      // FoxIndex's own verification status (see docs/adr/0010). Submitting
+      // for an unverified domain is allowed; it may still fail once IndexNow
+      // looks for the key file and doesn't find it.
+      const preferred = all.find((d) => d.verificationStatus === 'VERIFIED') ?? all[0];
+      if (preferred) setDomainId(preferred.id);
     });
   }, [projectId]);
 
@@ -77,13 +82,20 @@ export default function SubmitUrlsPage({
               onChange={(e) => setDomainId(e.target.value)}
               required
             >
-              {domains?.length === 0 && <option value="">No verified domains</option>}
+              {domains?.length === 0 && <option value="">No domains yet — add one first</option>}
               {domains?.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.hostname}
+                  {d.verificationStatus !== 'VERIFIED' ? ' (unverified)' : ''}
                 </option>
               ))}
             </select>
+            {domains?.find((d) => d.id === domainId)?.verificationStatus !== 'VERIFIED' && domainId && (
+              <p className="text-sm text-muted-foreground">
+                This domain isn&apos;t verified yet. Submissions are still sent to IndexNow, but it will reject
+                them if the key file isn&apos;t actually hosted at this domain.
+              </p>
+            )}
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="urls">URLs</Label>

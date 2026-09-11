@@ -2,7 +2,6 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Queue } from 'bullmq';
 import { normalizeUrl, urlBelongsToHostname, type SubmitUrlsInput } from '@foxindex/validation';
 import {
-  DomainVerificationStatus,
   SubmissionFailureReason,
   SubmissionProvider,
   UrlSubmissionState,
@@ -91,15 +90,11 @@ export class SubmissionsService {
         continue;
       }
 
-      if (domain.verificationStatus !== DomainVerificationStatus.VERIFIED) {
-        rejected.push({
-          url: rawUrl,
-          reason: SubmissionFailureReason.DOMAIN_NOT_VERIFIED,
-          message: 'Domain must be verified before submitting URLs',
-        });
-        continue;
-      }
-
+      // Domain verification is no longer a hard gate here (see docs/adr/0010)
+      // — it's queued and actually sent to IndexNow regardless. IndexNow's own
+      // key-file check is the real authorization boundary; ours was a second,
+      // redundant one that only ever produced an earlier, less informative
+      // failure than the one IndexNow itself would give.
       const urlRow = await this.urlsRepo.upsert({
         organizationId,
         projectId,

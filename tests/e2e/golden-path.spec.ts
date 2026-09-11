@@ -26,7 +26,10 @@ test.describe('golden path', () => {
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(password);
     await page.getByRole('button', { name: 'Sign up' }).click();
-    await expect(page.getByText('Check your email')).toBeVisible();
+    // Longer timeout than the suite default: this is the very first request
+    // to a webServer that just booted (cold Postgres pool) doing intentionally
+    // slow scrypt password hashing — 20s has been observed to be too tight.
+    await expect(page.getByText('Check your email')).toBeVisible({ timeout: 45_000 });
 
     // --- verify email (read the link MailDev caught, don't click through it) ---
     const verifyLink = await waitForEmailLink(email);
@@ -37,7 +40,7 @@ test.describe('golden path', () => {
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(password);
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page.getByRole('heading', { name: 'Organizations' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Organizations' })).toBeVisible({ timeout: 30_000 });
 
     // --- create organization (creator becomes OWNER) ---
     await page.getByRole('link', { name: 'New organization' }).click();
@@ -79,7 +82,7 @@ test.describe('golden path', () => {
     await expect(async () => {
       await page.reload();
       await expect(page.getByText('VERIFIED', { exact: true }).first()).toBeVisible();
-    }).toPass({ timeout: 30_000, intervals: [1500] });
+    }).toPass({ timeout: 45_000, intervals: [1500] });
 
     // --- submit a URL ---
     await page.goto(`${projectUrl}/submit`);
@@ -97,7 +100,7 @@ test.describe('golden path', () => {
     await expect(async () => {
       await page.reload();
       await expect(page.getByText('SUBMITTED', { exact: true }).first()).toBeVisible();
-    }).toPass({ timeout: 30_000, intervals: [1500] });
+    }).toPass({ timeout: 45_000, intervals: [1500] });
 
     // --- the push actually reached the (mocked) IndexNow endpoint for this host ---
     const indexNowRequests = (await (await fetch(`${INDEXNOW_MOCK_URL}/__requests`)).json()) as Array<{
