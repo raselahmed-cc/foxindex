@@ -91,7 +91,9 @@ is a real queue and not an inline API call.
 
 `health`, `auth` (Better Auth mounted + `/me`), `organizations`, `projects`,
 `domains`, `urls` (read-only — see below), `submissions`, `api-keys`,
-`audit-logs` (write path only, no controller yet). Every org-scoped route
+`credits` (balance + ledger, read-only API — see
+[ADR 0011](./adr/0011-credit-ledger-not-billing.md)), `audit-logs` (write
+path only, no controller yet). Every org-scoped route
 goes through `TenantContextGuard` (resolves org/project membership, or an
 API key's own scope) then `RolesGuard` (`@Roles(...)` allow-lists).
 
@@ -103,7 +105,11 @@ as a side effect of being submitted, not through its own create endpoint.
 Every org-scoped table carries `organization_id` (`+ project_id` where
 applicable). Tables that exist today:
 
-- `organizations`, `organization_members` (unique `(organization_id, user_id)`)
+- `organizations` (carries `credit_balance`, the fast-path cache — see below),
+  `organization_members` (unique `(organization_id, user_id)`)
+- `credit_ledger` — append-only, the audit trail `credit_balance` is derived
+  from; every submission deducts one credit (see
+  [ADR 0011](./adr/0011-credit-ledger-not-billing.md))
 - `projects` (unique `(organization_id, slug)`)
 - `domains` — `hostname`, server-generated `indexnow_key`, optional
   `indexnow_key_location` override, `verification_status`

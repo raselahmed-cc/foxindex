@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, desc, eq } from 'drizzle-orm';
-import type { Database } from '@foxindex/database';
+import type { Database, Transaction } from '@foxindex/database';
 import { urlSubmissions, urls } from '@foxindex/database';
 import { SubmissionProvider, UrlSubmissionState } from '@foxindex/types';
 import { DATABASE } from '../../database/database.module';
@@ -27,15 +27,16 @@ export class SubmissionsRepository {
 
   /**
    * Created directly at ACCEPTED, not RECEIVED — by the time this is called,
-   * the caller has already normalized the URL and confirmed the domain is
-   * verified (constitution §37's RECEIVED/VALIDATING states describe the
+   * the caller has already normalized the URL and belongs to the given
+   * domain (constitution §37's RECEIVED/VALIDATING states describe the
    * pre-row-existence validation that already happened; the row's existence
    * begins post-validation). A single follow-up update to QUEUED after the
    * job is actually enqueued is enough — no need to persist every transient
-   * state as its own write.
+   * state as its own write. Optional `tx`: composes into the caller's own
+   * transaction alongside the credit deduction it happens with (docs/adr/0011).
    */
-  async create(input: CreateSubmissionInput) {
-    const [submission] = await this.db
+  async create(input: CreateSubmissionInput, tx?: Database | Transaction) {
+    const [submission] = await (tx ?? this.db)
       .insert(urlSubmissions)
       .values({ ...input, state: UrlSubmissionState.ACCEPTED })
       .returning();

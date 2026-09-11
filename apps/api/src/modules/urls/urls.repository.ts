@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
-import type { Database } from '@foxindex/database';
+import type { Database, Transaction } from '@foxindex/database';
 import { urls } from '@foxindex/database';
 import { DATABASE } from '../../database/database.module';
 
@@ -33,15 +33,16 @@ export class UrlsRepository {
    * §10): a re-submission of an already-known URL upserts onto the existing
    * row rather than creating a duplicate.
    */
-  async upsert(input: UpsertUrlInput) {
-    const [inserted] = await this.db
+  async upsert(input: UpsertUrlInput, tx?: Database | Transaction) {
+    const executor = tx ?? this.db;
+    const [inserted] = await executor
       .insert(urls)
       .values(input)
       .onConflictDoNothing({ target: [urls.projectId, urls.normalizedUrlHash] })
       .returning();
     if (inserted) return inserted;
 
-    const existing = await this.db.query.urls.findFirst({
+    const existing = await executor.query.urls.findFirst({
       where: and(eq(urls.projectId, input.projectId), eq(urls.normalizedUrlHash, input.normalizedUrlHash)),
     });
     if (!existing) {

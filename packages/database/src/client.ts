@@ -4,6 +4,15 @@ import * as schema from './schema';
 
 export type Database = NodePgDatabase<typeof schema>;
 
+/**
+ * The type `db.transaction(async (tx) => ...)` hands its callback — extracted
+ * rather than hand-written against drizzle's own PgTransaction generics, so a
+ * repository method can accept an optional `tx?: Database | Transaction` and
+ * compose into a caller's existing transaction instead of always opening its
+ * own (see docs/adr/0011 for the first caller that needs this).
+ */
+export type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
+
 export interface CreateDbClientOptions {
   connectionString: string;
   /** Neon and most managed Postgres providers require TLS; local dev does not. */

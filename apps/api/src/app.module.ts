@@ -18,6 +18,7 @@ import { DomainsModule } from './modules/domains/domains.module';
 import { UrlsModule } from './modules/urls/urls.module';
 import { SubmissionsModule } from './modules/submissions/submissions.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
+import { CreditsModule } from './modules/credits/credits.module';
 import { QueuesModule } from './queues/queues.module';
 import { IdempotencyModule } from './common/idempotency/idempotency.module';
 
@@ -37,6 +38,7 @@ import { IdempotencyModule } from './common/idempotency/idempotency.module';
     DomainsModule,
     UrlsModule,
     ApiKeysModule,
+    CreditsModule,
     SubmissionsModule,
   ],
   providers: [

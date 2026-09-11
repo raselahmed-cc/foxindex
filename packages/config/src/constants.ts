@@ -18,4 +18,13 @@ export const SERVICE_NAMES = {
   VERIFICATION_WORKER: 'foxindex-worker-verification',
 } as const;
 
-export const MAX_URLS_PER_SUBMISSION_REQUEST = 100;
+// Lowered from 100, not raised — measured live against real Neon (docs/adr/0011)
+// during the credits change: each URL now costs ~4 sequential DB round trips
+// (was ~2 before credits), and a request's wall-clock time works out to
+// roughly a ~12s fixed cost plus ~4s per URL. 100 URLs would be ~7 minutes;
+// 20 measured at ~93s end to end. True bulk (thousands, async, batched SQL)
+// is deferred, not built here — see the ADR.
+export const MAX_URLS_PER_SUBMISSION_REQUEST = 20;
+
+/** New organizations start with this many credits (docs/adr/0011). */
+export const STARTER_CREDIT_BALANCE = 50;

@@ -7,4 +7,5 @@ export * from './urls';
 export * from './submissions';
 export * from './api-keys';
 export * from './audit-logs';
+export * from './credits';
 export * from './relations';

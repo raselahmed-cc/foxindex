@@ -1,7 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Queue } from 'bullmq';
+import type { Database } from '@foxindex/database';
 import { normalizeUrl, urlBelongsToHostname, type SubmitUrlsInput } from '@foxindex/validation';
 import {
+  CreditLedgerReason,
   SubmissionFailureReason,
   SubmissionProvider,
   UrlSubmissionState,
@@ -9,7 +11,9 @@ import {
 } from '@foxindex/types';
 import { enqueueSubmissionJob } from '@foxindex/queue';
 import { NotFoundError } from '../../common/errors/app-error';
+import { DATABASE } from '../../database/database.module';
 import { AuditLogService } from '../audit-logs/audit-log.service';
+import { CreditsRepository } from '../credits/credits.repository';
 import { DomainsService } from '../domains/domains.service';
 import { UrlsRepository } from '../urls/urls.repository';
 import { SUBMISSION_QUEUE } from '../../queues/submission-queue.provider';
@@ -40,15 +44,17 @@ export class SubmissionsService {
     @Inject(UrlsRepository) private readonly urlsRepo: UrlsRepository,
     @Inject(DomainsService) private readonly domains: DomainsService,
     @Inject(AuditLogService) private readonly auditLog: AuditLogService,
+    @Inject(CreditsRepository) private readonly credits: CreditsRepository,
+    @Inject(DATABASE) private readonly db: Database,
     @Inject(SUBMISSION_QUEUE) private readonly submissionQueue: Queue<SubmissionJobPayload>,
   ) {}
 
   /**
    * The submission POST flow (constitution §17/§37): normalize + dedupe each
-   * URL, reject anything that doesn't belong to the given (verified) domain
-   * without creating a row for it, then accept + enqueue the rest. A rejected
-   * URL never gets a url_submissions row — rejection happens before the row
-   * would exist, not as a state the row passes through.
+   * URL, reject anything that doesn't belong to the given domain or that the
+   * organization doesn't have a credit to pay for, then accept + enqueue the
+   * rest. A rejected URL never gets a url_submissions row — rejection happens
+   * before the row would exist, not as a state the row passes through.
    *
    * Processed sequentially, not with Promise.all — bounded by the request's
    * own URL count cap (packages/validation's MAX_URLS_PER_SUBMISSION_REQUEST),
@@ -95,24 +101,61 @@ export class SubmissionsService {
       // key-file check is the real authorization boundary; ours was a second,
       // redundant one that only ever produced an earlier, less informative
       // failure than the one IndexNow itself would give.
-      const urlRow = await this.urlsRepo.upsert({
-        organizationId,
-        projectId,
-        domainId: domain.id,
-        rawUrl,
-        normalizedUrl: normalized.normalizedUrl,
-        normalizedUrlHash: normalized.normalizedUrlHash,
-        createdByUserId: actor.userId,
+      //
+      // Deduct + upsert + create run in one transaction (docs/adr/0011): the
+      // idempotency interceptor explicitly permits a client to retry this
+      // exact request on any handler error, and a naive retry after
+      // deduct-succeeds-but-create-fails would double-charge with no row to
+      // show for it. If the deduction fails (insufficient balance), nothing
+      // in this transaction wrote anything — it just commits empty.
+      const result = await this.db.transaction(async (tx) => {
+        const newBalance = await this.credits.deduct(
+          organizationId,
+          1,
+          CreditLedgerReason.SUBMISSION_DEDUCTION,
+          { normalizedUrl: normalized.normalizedUrl },
+          tx,
+        );
+        if (newBalance === null) return null;
+
+        const urlRow = await this.urlsRepo.upsert(
+          {
+            organizationId,
+            projectId,
+            domainId: domain.id,
+            rawUrl,
+            normalizedUrl: normalized.normalizedUrl,
+            normalizedUrlHash: normalized.normalizedUrlHash,
+            createdByUserId: actor.userId,
+          },
+          tx,
+        );
+
+        const submission = await this.submissions.create(
+          {
+            organizationId,
+            projectId,
+            urlId: urlRow.id,
+            provider: SubmissionProvider.INDEXNOW,
+            requestedByUserId: actor.userId,
+            requestedByApiKeyId: actor.apiKeyId,
+          },
+          tx,
+        );
+
+        return { urlRow, submission };
       });
 
-      const submission = await this.submissions.create({
-        organizationId,
-        projectId,
-        urlId: urlRow.id,
-        provider: SubmissionProvider.INDEXNOW,
-        requestedByUserId: actor.userId,
-        requestedByApiKeyId: actor.apiKeyId,
-      });
+      if (!result) {
+        rejected.push({
+          url: rawUrl,
+          reason: SubmissionFailureReason.INSUFFICIENT_CREDITS,
+          message: 'Organization has insufficient credit balance',
+        });
+        continue;
+      }
+
+      const { urlRow, submission } = result;
 
       const payload: SubmissionJobPayload = {
         organizationId,

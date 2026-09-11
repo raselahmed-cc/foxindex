@@ -35,6 +35,22 @@ export default function SubmitUrlsPage({
     });
   }, [projectId]);
 
+  function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = ''; // allow re-selecting the same file later
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const contents = String(reader.result ?? '');
+      const urls = contents
+        .split(/[\n,]+/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+      setUrlsText((existing) => (existing ? `${existing}\n${urls.join('\n')}` : urls.join('\n')));
+    };
+    reader.readAsText(file);
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
@@ -67,8 +83,9 @@ export default function SubmitUrlsPage({
       <CardHeader>
         <CardTitle>Submit URLs</CardTitle>
         <CardDescription>
-          One URL per line, up to 100. Each is pushed to IndexNow (Bing, Yandex, Naver, Seznam, Yep) — this
-          confirms the push was accepted, not that any engine has indexed the page yet.
+          One URL per line, up to 20 — paste them in or upload a .csv/.txt file. A full batch can take up to
+          a minute or two to process. Each is pushed to IndexNow (Bing, Yandex, Naver, Seznam, Yep) and costs
+          one credit — this confirms the push was accepted, not that any engine has indexed the page yet.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -98,7 +115,13 @@ export default function SubmitUrlsPage({
             )}
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="urls">URLs</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="urls">URLs</Label>
+              <label className="cursor-pointer text-xs text-muted-foreground underline">
+                Upload .csv/.txt
+                <input type="file" accept=".csv,.txt,text/csv,text/plain" onChange={handleFile} className="hidden" />
+              </label>
+            </div>
             <textarea
               id="urls"
               required

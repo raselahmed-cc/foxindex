@@ -16,7 +16,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/migrate.ts"
+    "db:migrate": "tsx src/migrate.ts",
+    "grant-credits": "tsx src/grant-credits.ts"
   },
   "dependencies": {
     "@foxindex/types": "workspace:*",

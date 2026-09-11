@@ -57,11 +57,22 @@ export enum SubmissionProvider {
 export enum SubmissionFailureReason {
   INVALID_URL = 'INVALID_URL',
   DOMAIN_NOT_VERIFIED = 'DOMAIN_NOT_VERIFIED',
+  INSUFFICIENT_CREDITS = 'INSUFFICIENT_CREDITS',
   PROVIDER_ERROR = 'PROVIDER_ERROR',
   RATE_LIMITED = 'RATE_LIMITED',
   NETWORK_ERROR = 'NETWORK_ERROR',
   QUOTA_EXCEEDED = 'QUOTA_EXCEEDED',
   UNKNOWN = 'UNKNOWN',
+}
+
+/**
+ * credit_ledger.reason (see docs/adr/0011). Non-monetary usage-gating, not the
+ * deferred plans/subscriptions/usage_records billing system in future-schema.md.
+ */
+export enum CreditLedgerReason {
+  SIGNUP_BONUS = 'SIGNUP_BONUS',
+  MANUAL_GRANT = 'MANUAL_GRANT',
+  SUBMISSION_DEDUCTION = 'SUBMISSION_DEDUCTION',
 }
 
 export enum ApiKeyScope {

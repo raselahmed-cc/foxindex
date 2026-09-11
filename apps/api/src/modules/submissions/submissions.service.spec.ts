@@ -1,8 +1,10 @@
 import type { Queue } from 'bullmq';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Database } from '@foxindex/database';
 import { DomainVerificationStatus, SubmissionFailureReason } from '@foxindex/types';
 import { SubmissionsService } from './submissions.service';
 import type { AuditLogService } from '../audit-logs/audit-log.service';
+import type { CreditsRepository } from '../credits/credits.repository';
 import type { DomainsService } from '../domains/domains.service';
 import type { UrlsRepository } from '../urls/urls.repository';
 import type { SubmissionsRepository } from './submissions.repository';
@@ -21,6 +23,8 @@ describe('SubmissionsService.submitUrls', () => {
   let urlsRepo: { upsert: ReturnType<typeof vi.fn> };
   let submissionsRepo: { create: ReturnType<typeof vi.fn>; markQueued: ReturnType<typeof vi.fn> };
   let auditLog: { record: ReturnType<typeof vi.fn> };
+  let credits: { deduct: ReturnType<typeof vi.fn> };
+  let db: { transaction: ReturnType<typeof vi.fn> };
   let queue: Queue;
   let service: SubmissionsService;
 
@@ -38,6 +42,12 @@ describe('SubmissionsService.submitUrls', () => {
       markQueued: vi.fn().mockResolvedValue(undefined),
     };
     auditLog = { record: vi.fn().mockResolvedValue(undefined) };
+    credits = { deduct: vi.fn().mockResolvedValue(49) };
+    // The fake tx passed to the callback is never inspected by anything
+    // here — every downstream call (urlsRepo.upsert, submissionsRepo.create,
+    // credits.deduct) is itself a mock that just records what it was called
+    // with, regardless of the tx's actual shape.
+    db = { transaction: vi.fn((callback: (tx: unknown) => unknown) => callback({})) };
     queue = { add: vi.fn().mockResolvedValue(undefined) } as unknown as Queue;
 
     service = new SubmissionsService(
@@ -45,6 +55,8 @@ describe('SubmissionsService.submitUrls', () => {
       urlsRepo as unknown as UrlsRepository,
       domains as unknown as DomainsService,
       auditLog as unknown as AuditLogService,
+      credits as unknown as CreditsRepository,
+      db as unknown as Database,
       queue,
     );
   });
@@ -121,5 +133,28 @@ describe('SubmissionsService.submitUrls', () => {
     expect(auditLog.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'url.submitted', resourceId: 'proj_1' }),
     );
+  });
+
+  it('rejects a URL when the organization has insufficient credits, without creating a row or enqueuing (docs/adr/0011)', async () => {
+    credits.deduct.mockResolvedValueOnce(null);
+
+    const result = await service.submitUrls(
+      'org_1',
+      'proj_1',
+      { domainId: 'dom_1', urls: ['https://example.com/a'] },
+      { userId: 'user_1' },
+    );
+
+    expect(result.submissions).toEqual([]);
+    expect(result.rejected).toEqual([
+      {
+        url: 'https://example.com/a',
+        reason: SubmissionFailureReason.INSUFFICIENT_CREDITS,
+        message: 'Organization has insufficient credit balance',
+      },
+    ]);
+    expect(urlsRepo.upsert).not.toHaveBeenCalled();
+    expect(submissionsRepo.create).not.toHaveBeenCalled();
+    expect(queue.add).not.toHaveBeenCalled();
   });
 });

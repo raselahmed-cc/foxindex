@@ -8,6 +8,13 @@
       "when": 1787922931547,
       "tag": "0000_long_squirrel_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789166564545,
+      "tag": "0001_amazing_spacker_dave",
+      "breakpoints": true
     }
   ]
 }

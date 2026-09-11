@@ -1,6 +1,7 @@
 import { pgEnum } from 'drizzle-orm/pg-core';
 import {
   ApiKeyScope,
+  CreditLedgerReason,
   DomainVerificationMethod,
   DomainVerificationStatus,
   Role,
@@ -34,3 +35,4 @@ export const submissionFailureReasonEnum = pgEnum(
   pgEnumValues(SubmissionFailureReason),
 );
 export const apiKeyScopeEnum = pgEnum('api_key_scope', pgEnumValues(ApiKeyScope));
+export const creditLedgerReasonEnum = pgEnum('credit_ledger_reason', pgEnumValues(CreditLedgerReason));

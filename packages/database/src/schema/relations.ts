@@ -2,6 +2,7 @@ import { relations } from 'drizzle-orm';
 import { user } from './auth';
 import { apiKeys } from './api-keys';
 import { auditLogs } from './audit-logs';
+import { creditLedger } from './credits';
 import { domains, domainVerifications } from './domains';
 import { organizationMembers, organizations } from './organizations';
 import { projects } from './projects';
@@ -13,6 +14,11 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
   projects: many(projects),
   apiKeys: many(apiKeys),
   auditLogs: many(auditLogs),
+  creditLedger: many(creditLedger),
+}));
+
+export const creditLedgerRelations = relations(creditLedger, ({ one }) => ({
+  organization: one(organizations, { fields: [creditLedger.organizationId], references: [organizations.id] }),
 }));
 
 export const organizationMembersRelations = relations(organizationMembers, ({ one }) => ({

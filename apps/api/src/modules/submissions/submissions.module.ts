@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CreditsModule } from '../credits/credits.module';
 import { DomainsModule } from '../domains/domains.module';
 import { UrlsModule } from '../urls/urls.module';
 import { ApiKeysModule } from '../api-keys/api-keys.module';
@@ -12,7 +13,7 @@ import { SubmissionsRepository } from './submissions.repository';
 @Module({
   // ApiKeysModule is needed for ApiKeysRepository — SessionOrApiKeyGuard's
   // ApiKeyGuard branch depends on it to authenticate Bearer requests.
-  imports: [DomainsModule, UrlsModule, ApiKeysModule],
+  imports: [DomainsModule, UrlsModule, ApiKeysModule, CreditsModule],
   controllers: [SubmissionsController],
   providers: [
     SubmissionsService,

@@ -63,6 +63,12 @@ This is what would finally give `UrlSubmissionState.INDEXED` /
   (`urls_submitted`), period, count — the metering source of truth billing
   would read from
 
+`organizations.credit_balance` and `credit_ledger` already exist and are
+distinct from all three of the above — see
+[ADR 0011](./adr/0011-credit-ledger-not-billing.md). They're a non-monetary
+usage-gating primitive (submissions deduct credits; insufficient balance is
+rejected), not a plan/subscription/payment system.
+
 ## Notifications
 
 - **`notifications`** — `organization_id`, `user_id` (nullable = org-wide),

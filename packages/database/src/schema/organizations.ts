@@ -1,4 +1,4 @@
-import { index, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
+import { index, integer, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
 import { user } from './auth';
 import { roleEnum } from './enums';
 
@@ -8,6 +8,10 @@ export const organizations = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     name: varchar('name', { length: 255 }).notNull(),
     slug: varchar('slug', { length: 100 }).notNull(),
+    // Fast-path cache derived from credit_ledger (docs/adr/0011) — every
+    // change to this column happens alongside a ledger row in the same
+    // transaction, never on its own.
+    creditBalance: integer('credit_balance').notNull().default(0),
     createdByUserId: text('created_by_user_id').references(() => user.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

@@ -13,8 +13,28 @@ intent lives until each one gets its own milestone.
 Plans, subscriptions, usage-based metering, invoicing. Needs a payment
 provider integration (Stripe, most likely) and the `plans` /
 `subscriptions` / `usage_records` tables in
-[future-schema.md](./future-schema.md). Nothing in Phase 1 meters usage
-anywhere, so there's nothing yet to bill against.
+[future-schema.md](./future-schema.md).
+
+**Not the same as the credit ledger** (`organizations.credit_balance` /
+`credit_ledger`, [ADR 0011](./adr/0011-credit-ledger-not-billing.md)), which
+does exist and does gate submissions — it's a non-monetary usage primitive
+with no plan tiers, billing periods, or payment provider. Credits are
+currently granted only via a developer-run CLI script
+(`pnpm credits:grant`); *this* entry is what a real self-serve purchase flow
+(Stripe Checkout topping up that same balance) would look like once built.
+
+## Bulk submission at real scale
+
+`MAX_URLS_PER_SUBMISSION_REQUEST` is 20 — measured live against real Neon
+(see [ADR 0011](./adr/0011-credit-ledger-not-billing.md)) to be roughly
+what a single synchronous request can process in under two minutes with
+today's sequential, one-round-trip-per-URL submission loop. Hundreds or
+thousands of URLs in one submission — what some competitors offer — needs
+two things this doesn't have yet: batched SQL (one multi-row credit
+deduction and one multi-row insert per batch, not one round trip per URL)
+and async processing with progress tracking, rather than a bigger number
+on the same loop. The ADR has the measured numbers behind why a bigger
+synchronous cap alone would make things worse, not better.
 
 ## Webhooks (outbound)
 

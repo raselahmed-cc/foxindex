@@ -62,3 +62,17 @@ export interface SubmitUrlsResult {
   submissions: { id: string; urlId: string; normalizedUrl: string; state: string }[];
   rejected: { url: string; reason: string; message: string }[];
 }
+
+export interface CreditLedgerEntry {
+  id: string;
+  organizationId: string;
+  delta: number;
+  reason: string;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface CreditBalance {
+  balance: number;
+  recentLedger: CreditLedgerEntry[];
+}
