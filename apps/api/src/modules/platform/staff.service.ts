@@ -24,7 +24,9 @@ export class StaffService {
     @Inject(AuditLogService) private readonly auditLog: AuditLogService,
   ) {}
 
-  async list() {
+  /** Superadmins are visible to superadmins only — admins never see their accounts. */
+  async list(actor: { role: UserRole }) {
+    const roles = actor.role === UserRole.SUPERADMIN ? sql`('manager','admin','superadmin')` : sql`('manager','admin')`;
     const result = await this.db.execute<{
       id: string;
       name: string;
@@ -40,7 +42,7 @@ export class StaffService {
              (SELECT count(*) FROM ${users} c WHERE c.assigned_manager_id = u.id AND c.status = 'active') AS clients,
              (SELECT max(s.created_at) FROM ${sessions} s WHERE s.user_id = u.id) AS last_active
       FROM ${users} u
-      WHERE u.role IN ('manager','admin','superadmin')
+      WHERE u.role IN ${roles}
       ORDER BY CASE u.role WHEN 'superadmin' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END, u.created_at
     `);
     return result.rows.map((r) => ({

@@ -38,14 +38,14 @@ export class PlatformController {
 
   @Get('overview')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
-  getOverview() {
-    return this.overview.overview();
+  getOverview(@CurrentUser() actor: Actor) {
+    return this.overview.overview(actor.role);
   }
 
   @Get('audit-logs')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
-  auditLogs(@Query(new ZodValidationPipe(auditLogQuerySchema)) query: AuditLogQuery) {
-    return this.overview.auditLog(query);
+  auditLogs(@CurrentUser() actor: Actor, @Query(new ZodValidationPipe(auditLogQuerySchema)) query: AuditLogQuery) {
+    return this.overview.auditLog(query, actor.role);
   }
 
   // ── Providers (superadmin) ─────────────────────────────────────────────
@@ -110,8 +110,8 @@ export class PlatformController {
 
   @Get('staff')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
-  listStaff() {
-    return this.staff.list();
+  listStaff(@CurrentUser() actor: Actor) {
+    return this.staff.list(actor);
   }
 
   @Post('staff')

@@ -178,7 +178,7 @@ export default function StaffPage() {
     <>
       <DashboardTopbar
         title={isSuper ? 'Staff & roles' : 'Managers & staff'}
-        subtitle={staff.data ? `${staff.data.length} staff · ${counts('admin') + counts('superadmin')} admins · ${counts('manager')} managers` : undefined}
+        subtitle={staff.data ? `${staff.data.length} staff · ${counts('admin') + (isSuper ? counts('superadmin') : 0)} admins · ${counts('manager')} managers` : undefined}
         search={false}
       />
       <div className={cn('grid grid-cols-1 items-start gap-4', canManage && 'xl:grid-cols-[minmax(0,2.1fr)_minmax(0,1fr)]')}>
@@ -189,7 +189,7 @@ export default function StaffPage() {
               <Segmented
                 value={roleFilter}
                 onChange={setRoleFilter}
-                options={[{ value: 'all', label: 'All' }, { value: 'manager', label: 'Managers' }, { value: 'admin', label: 'Admins' }, { value: 'superadmin', label: 'Super' }]}
+                options={[{ value: 'all' as const, label: 'All' }, { value: 'manager' as const, label: 'Managers' }, { value: 'admin' as const, label: 'Admins' }, ...(isSuper ? [{ value: 'superadmin' as const, label: 'Super' }] : [])]}
               />
             }
           />

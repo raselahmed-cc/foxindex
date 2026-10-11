@@ -140,7 +140,7 @@ export class AdminService {
 
   async grantCredits(targetUserId: string, actorId: string, input: GrantCreditsInput) {
     const target = await this.repository.findUserById(targetUserId);
-    if (!target) throw new NotFoundError('User');
+    if (!target || target.role === UserRole.SUPERADMIN) throw new NotFoundError('User');
 
     const balance = await this.credits.grant(targetUserId, input.amount, 'manual_add', actorId, input.note);
 

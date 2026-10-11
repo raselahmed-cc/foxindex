@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, ilike, isNull, or } from 'drizzle-orm';
+import { and, desc, eq, ilike, isNull, ne, or } from 'drizzle-orm';
 import type { Database } from '@foxindex/database';
 import { sessions, users } from '@foxindex/database';
 import type { UserListQuery } from '@foxindex/validation';
@@ -49,6 +49,8 @@ export class AdminRepository {
       where: and(
         // Managers only ever see their own clients — enforced in the query, not just a route guard.
         actor.role === UserRole.MANAGER ? eq(users.assignedManagerId, actor.id) : undefined,
+        // Superadmin accounts are hidden from everyone but superadmins.
+        actor.role !== UserRole.SUPERADMIN ? ne(users.role, 'superadmin') : undefined,
         filters.status ? eq(users.status, filters.status) : undefined,
         filters.role ? eq(users.role, filters.role) : undefined,
         term ? or(ilike(users.name, term), ilike(users.email, term)) : undefined,

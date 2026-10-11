@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
+import { UserRole } from '@foxindex/types';
 import type IORedis from 'ioredis';
 import { auditLogs, payments, urlSubmissions, users, type Database } from '@foxindex/database';
 import type { AuditLogQuery } from '@foxindex/validation';
@@ -13,13 +14,13 @@ export class OverviewService {
     @Inject(REDIS_CONNECTION) private readonly redis: IORedis,
   ) {}
 
-  async overview() {
+  async overview(viewerRole: UserRole = UserRole.SUPERADMIN) {
     const [kpis, series, managers, attention, recentAudit, health] = await Promise.all([
       this.kpis(),
       this.series(),
       this.managers(),
       this.attention(),
-      this.auditLog({ limit: 6 }),
+      this.auditLog({ limit: 6 }, viewerRole),
       this.health(),
     ]);
     return { kpis, series, managers, attention, recentAudit, health };
@@ -130,7 +131,9 @@ export class OverviewService {
     };
   }
 
-  async auditLog(query: Partial<AuditLogQuery>) {
+  /** Admins don't see what superadmins did, nor entries about superadmin accounts. */
+  async auditLog(query: Partial<AuditLogQuery>, viewerRole: UserRole = UserRole.SUPERADMIN) {
+    const hideSuperadmin = viewerRole !== UserRole.SUPERADMIN;
     const rows = await this.db
       .select({
         id: auditLogs.id,
@@ -148,6 +151,8 @@ export class OverviewService {
         and(
           query.before ? lt(auditLogs.createdAt, new Date(query.before)) : undefined,
           query.action ? sql`${auditLogs.action} ILIKE ${query.action + '%'}` : undefined,
+          hideSuperadmin ? sql`(${users.role} IS NULL OR ${users.role} <> 'superadmin')` : undefined,
+          hideSuperadmin ? sql`NOT (${auditLogs.targetType} = 'user' AND ${auditLogs.targetId} IN (SELECT id FROM ${users} WHERE role = 'superadmin'))` : undefined,
         ),
       )
       .orderBy(desc(auditLogs.createdAt))
