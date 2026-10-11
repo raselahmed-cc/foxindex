@@ -106,7 +106,7 @@ export class PlatformController {
     return this.providers.updateServiceAccount(actor.id, id, body);
   }
 
-  // ── Staff (superadmin) ─────────────────────────────────────────────────
+  // ── Staff (superadmin: everyone · admin: managers only, enforced in StaffService) ──
 
   @Get('staff')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
@@ -115,13 +115,13 @@ export class PlatformController {
   }
 
   @Post('staff')
-  @Roles(UserRole.SUPERADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   invite(@CurrentUser() actor: Actor, @Body(new ZodValidationPipe(inviteStaffSchema)) body: InviteStaffInput) {
-    return this.staff.invite(actor.id, body);
+    return this.staff.invite(actor, body);
   }
 
   @Patch('staff/:id')
-  @Roles(UserRole.SUPERADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   updateStaff(
     @CurrentUser() actor: Actor,
     @Param('id', ParseUUIDPipe) id: string,

@@ -28,11 +28,13 @@ const MATRIX: [string, boolean, boolean, boolean][] = [
   ['Add credit · any user', false, true, true],
   ['Assign managers', false, true, true],
   ['Suspend users', false, true, true],
+  ['Transfer chats & tickets between managers', false, true, true],
+  ['Add, edit & deactivate managers', false, true, true],
   ['Providers, gateways, packs', false, false, true],
-  ['Invite and manage staff', false, false, true],
+  ['Add & manage admins and superadmins', false, false, true],
 ];
 
-function InviteCard({ onInvited }: { onInvited: () => void }) {
+function InviteCard({ onInvited, canCreateAdmins }: { onInvited: () => void; canCreateAdmins: boolean }) {
   const [form, setForm] = useState({ name: '', email: '', role: 'manager' as StaffRole, maxClients: '45', password: '' });
   const [issued, setIssued] = useState<IssuedCredentials | null>(null);
   const [busy, setBusy] = useState(false);
@@ -71,8 +73,8 @@ function InviteCard({ onInvited }: { onInvited: () => void }) {
         <Field label="Role">
           <Select value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as StaffRole }))}>
             <option value="manager">Manager</option>
-            <option value="admin">Admin</option>
-            <option value="superadmin">Superadmin</option>
+            {canCreateAdmins && <option value="admin">Admin</option>}
+            {canCreateAdmins && <option value="superadmin">Superadmin</option>}
           </Select>
         </Field>
         {form.role === 'manager' && (
@@ -92,7 +94,7 @@ function InviteCard({ onInvited }: { onInvited: () => void }) {
   );
 }
 
-function EditModal({ member, onClose, onSaved }: { member: StaffMember | null; onClose: () => void; onSaved: () => void }) {
+function EditModal({ member, onClose, onSaved, canChangeRoles }: { member: StaffMember | null; onClose: () => void; onSaved: () => void; canChangeRoles: boolean }) {
   const toast = useToast();
   const [role, setRole] = useState<StaffRole>('manager');
   const [maxClients, setMaxClients] = useState('');
@@ -142,15 +144,17 @@ function EditModal({ member, onClose, onSaved }: { member: StaffMember | null; o
         </>
       }
     >
-      <Field label="Role" hint="Changing a role signs them out so the new permissions apply immediately.">
-        <Select value={role} onChange={(e) => setRole(e.target.value as StaffRole)}>
-          <option value="manager">Manager</option>
-          <option value="admin">Admin</option>
-          <option value="superadmin">Superadmin</option>
-        </Select>
-      </Field>
+      {canChangeRoles && (
+        <Field label="Role" hint="Changing a role signs them out so the new permissions apply immediately.">
+          <Select value={role} onChange={(e) => setRole(e.target.value as StaffRole)}>
+            <option value="manager">Manager</option>
+            <option value="admin">Admin</option>
+            <option value="superadmin">Superadmin</option>
+          </Select>
+        </Field>
+      )}
       {role === 'manager' && (
-        <Field label="Max clients" className="mb-0" hint="Deactivating a manager unassigns their clients so admins can reassign them.">
+        <Field label="Max clients" className="mb-0" hint="Deactivating a manager hands their clients, open chats and open tickets to the least busy active manager.">
           <Input mono inputMode="numeric" placeholder="No limit" value={maxClients} onChange={(e) => setMaxClients(e.target.value.replace(/\D/g, ''))} />
         </Field>
       )}
@@ -161,6 +165,9 @@ function EditModal({ member, onClose, onSaved }: { member: StaffMember | null; o
 export default function StaffPage() {
   const me = useUser();
   const isSuper = me.role === 'superadmin';
+  const canManage = isSuper || me.role === 'admin';
+  // Admins manage managers; only a superadmin edits admins and superadmins (also enforced by the API).
+  const canEdit = (s: StaffMember) => isSuper || (canManage && s.role === 'manager');
   const staff = useApi<StaffMember[]>('/admin/staff');
   const [roleFilter, setRoleFilter] = useState<StaffRole | 'all'>('all');
   const [editing, setEditing] = useState<StaffMember | null>(null);
@@ -170,11 +177,11 @@ export default function StaffPage() {
   return (
     <>
       <DashboardTopbar
-        title={isSuper ? 'Staff & roles' : 'Managers'}
+        title={isSuper ? 'Staff & roles' : 'Managers & staff'}
         subtitle={staff.data ? `${staff.data.length} staff · ${counts('admin') + counts('superadmin')} admins · ${counts('manager')} managers` : undefined}
         search={false}
       />
-      <div className={cn('grid grid-cols-1 items-start gap-4', isSuper && 'xl:grid-cols-[minmax(0,2.1fr)_minmax(0,1fr)]')}>
+      <div className={cn('grid grid-cols-1 items-start gap-4', canManage && 'xl:grid-cols-[minmax(0,2.1fr)_minmax(0,1fr)]')}>
         <Card>
           <CardHeader
             title="Staff"
@@ -204,7 +211,7 @@ export default function StaffPage() {
                   <td className="whitespace-nowrap text-auth-text3">{s.lastActiveAt ? relativeTime(s.lastActiveAt) : 'Never'}</td>
                   <td><Pill tone={s.status === 'active' ? 'ok' : 'bad'}>{s.status === 'active' ? 'Active' : 'Deactivated'}</Pill></td>
                   <td className="text-right">
-                    {s.id === me.id ? <span className="text-xs text-auth-text3">you</span> : isSuper ? <Button variant="link" onClick={() => setEditing(s)}>Edit</Button> : null}
+                    {s.id === me.id ? <span className="text-xs text-auth-text3">you</span> : canEdit(s) ? <Button variant="link" onClick={() => setEditing(s)}>Edit</Button> : null}
                   </td>
                 </tr>
               ))}
@@ -212,9 +219,9 @@ export default function StaffPage() {
           )}
         </Card>
 
-        {isSuper && (
+        {canManage && (
           <div className="grid gap-4">
-            <InviteCard onInvited={() => void staff.reload()} />
+            <InviteCard canCreateAdmins={isSuper} onInvited={() => void staff.reload()} />
             <Card>
               <CardHeader title="Permission matrix" right={<Pill tone="muted" dot={false}>Enforced by the API</Pill>} />
               <Table head={['Action', 'Mgr', 'Admin', 'Super']}>
@@ -231,7 +238,7 @@ export default function StaffPage() {
           </div>
         )}
       </div>
-      <EditModal member={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); void staff.reload(); }} />
+      <EditModal member={editing} canChangeRoles={isSuper} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); void staff.reload(); }} />
     </>
   );
 }

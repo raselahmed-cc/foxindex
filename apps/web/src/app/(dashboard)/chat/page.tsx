@@ -377,6 +377,39 @@ function AvailabilityToggle() {
   );
 }
 
+/** Admins move a client (and their chat history) to another manager without leaving the inbox. */
+function TransferSelect({ clientId, currentManagerId, onDone }: { clientId: string; currentManagerId?: string; onDone: () => void }) {
+  const toast = useToast();
+  const managers = useApi<{ id: string; name: string }[]>('/admin/managers');
+  const [busy, setBusy] = useState(false);
+  async function transfer(managerId: string) {
+    const name = managers.data?.find((m) => m.id === managerId)?.name ?? 'the new manager';
+    if (!window.confirm(`Move this client and their conversation to ${name}?`)) return;
+    setBusy(true);
+    try {
+      await apiClient.patch(`/admin/users/${clientId}/assign-manager`, { managerId });
+      toast(`Transferred to ${name}`);
+      onDone();
+    } catch (e) {
+      toast(errorMessage(e), 'bad');
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <select
+      aria-label="Transfer to manager"
+      disabled={busy || !managers.data}
+      value=""
+      onChange={(e) => e.target.value && void transfer(e.target.value)}
+      className="rounded-md border border-auth-line2 bg-auth-surface px-2 py-1.25 text-[12.5px] font-medium text-auth-text hover:bg-auth-surface2"
+    >
+      <option value="">Transfer…</option>
+      {managers.data?.filter((m) => m.id !== currentManagerId).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+    </select>
+  );
+}
+
 function StaffInbox({ chat, supervising }: { chat: ChatState; supervising: boolean }) {
   const me = useUser();
   const { refreshBadges } = useNav();
@@ -500,6 +533,7 @@ function StaffInbox({ chat, supervising }: { chat: ChatState; supervising: boole
                   <Button size="sm" onClick={() => setCreditFor(selected.peer)}>Add credit</Button>
                   <Link href={`/admin/users?q=${encodeURIComponent(selected.peer.email ?? selected.peer.name)}`} className="rounded-md border border-auth-line2 px-2.5 py-1.25 text-[12.5px] font-medium hover:bg-auth-surface2">Open profile</Link>
                   <Button size="sm" loading={toTicket.busy} onClick={() => void toTicket.run()}>To ticket</Button>
+                  {(me.role === 'admin' || me.role === 'superadmin') && <TransferSelect clientId={selected.peer.id} currentManagerId={selected.managerId} onDone={() => void chat.reloadConversations()} />}
                 </div>
               </div>
               {supervising && selected.managerId !== me.id && (

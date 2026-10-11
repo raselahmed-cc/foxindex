@@ -100,7 +100,7 @@ export function navFor(role: Role): NavGroup[] {
       ],
     });
   } else {
-    groups[1].items.push({ href: '/admin/staff', label: 'Managers', icon: 'users' });
+    groups[1].items.push({ href: '/admin/staff', label: 'Managers & staff', short: 'Staff', icon: 'users' });
   }
   groups.push({ label: 'Account', items: [SETTINGS] });
   return groups;

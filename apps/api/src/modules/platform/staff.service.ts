@@ -57,7 +57,12 @@ export class StaffService {
   }
 
   /** Creates the account active with a one-time temporary password emailed to the invitee. */
-  async invite(actorId: string, input: InviteStaffInput) {
+  async invite(actor: { id: string; role: UserRole }, input: InviteStaffInput) {
+    const actorId = actor.id;
+    // Admins manage managers; only a superadmin can create admins or superadmins.
+    if (actor.role !== UserRole.SUPERADMIN && input.role !== 'manager') {
+      throw new AuthorizationError('Only a superadmin can create admin or superadmin accounts');
+    }
     const existing = await this.db.query.users.findFirst({ where: eq(users.email, input.email), columns: { id: true } });
     if (existing) throw new ValidationError('Someone already uses that email', { reason: 'EMAIL_ALREADY_REGISTERED' });
 
@@ -102,6 +107,9 @@ export class StaffService {
     }
     const target = await this.db.query.users.findFirst({ where: eq(users.id, targetId) });
     if (!target || !(STAFF_ROLES as readonly string[]).includes(target.role)) throw new NotFoundError('Staff member');
+    if (actor.role !== UserRole.SUPERADMIN && (target.role !== 'manager' || (input.role && input.role !== 'manager'))) {
+      throw new AuthorizationError('Admins can manage managers only — ask a superadmin to change admin roles');
+    }
 
     if (target.role === 'superadmin' && (input.role && input.role !== 'superadmin' || input.status === 'suspended')) {
       const others = await this.db.query.users.findMany({
@@ -121,7 +129,17 @@ export class StaffService {
         await tx.update(sessions).set({ revokedAt: new Date() }).where(and(eq(sessions.userId, targetId), isNull(sessions.revokedAt)));
       }
       if (input.status === 'suspended' && target.role === 'manager') {
-        await tx.update(users).set({ assignedManagerId: null }).where(eq(users.assignedManagerId, targetId));
+        // Hand the manager's book to the least busy active manager so no client is left unattended.
+        const replacement = await tx.execute<{ id: string }>(sql`
+          SELECT u.id FROM ${users} u LEFT JOIN ${users} c ON c.assigned_manager_id = u.id
+          WHERE u.role = 'manager' AND u.status = 'active' AND u.id <> ${targetId}
+          GROUP BY u.id ORDER BY count(c.id) ASC, random() LIMIT 1`);
+        const nextId = replacement.rows[0]?.id ?? null;
+        await tx.update(users).set({ assignedManagerId: nextId }).where(eq(users.assignedManagerId, targetId));
+        if (nextId) {
+          await tx.execute(sql`UPDATE chat_conversations SET manager_id = ${nextId} WHERE manager_id = ${targetId}`);
+          await tx.execute(sql`UPDATE tickets SET assigned_manager_id = ${nextId} WHERE assigned_manager_id = ${targetId} AND status IN ('open', 'in_progress', 'waiting_on_client')`);
+        }
       }
       await this.auditLog.record({ actorId: actor.id, action: 'staff.update', targetType: 'user', targetId, metadata: input }, tx);
     });
