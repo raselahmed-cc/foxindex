@@ -1,7 +1,13 @@
+import { randomBytes } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
+import { and, eq } from 'drizzle-orm';
+import { findLeastLoadedManager, hashPassword } from '@foxindex/auth';
+import { users, type Database } from '@foxindex/database';
+import { DATABASE } from '../../database/database.module';
 import type {
   ApproveUserInput,
   AssignManagerInput,
+  CreateClientInput,
   GrantCreditsInput,
   SetUserStatusInput,
   UserListQuery,
@@ -24,7 +30,52 @@ export class AdminService {
     @Inject(AuthService) private readonly auth: AuthService,
     @Inject(ChatRepository) private readonly chat: ChatRepository,
     @Inject(RealtimeService) private readonly realtime: RealtimeService,
+    @Inject(DATABASE) private readonly db: Database,
   ) {}
+
+  /**
+   * Admin-created customer: active and email-verified at once (no signup flow).
+   * The password is returned once so the admin can hand it over, even without email.
+   */
+  async createClient(actorId: string, input: CreateClientInput) {
+    const existing = await this.db.query.users.findFirst({ where: eq(users.email, input.email), columns: { id: true } });
+    if (existing) throw new ValidationError('Someone already uses that email', { reason: 'EMAIL_ALREADY_REGISTERED' });
+
+    let managerId = input.managerId ?? null;
+    if (managerId) {
+      const mgr = await this.db.query.users.findFirst({ where: and(eq(users.id, managerId), eq(users.role, 'manager'), eq(users.status, 'active')), columns: { id: true } });
+      if (!mgr) throw new ValidationError('That manager does not exist or is not active');
+    } else if (input.managerId === undefined) {
+      managerId = (await findLeastLoadedManager(this.db))?.id ?? null;
+    }
+
+    const password = input.password ?? randomBytes(12).toString('base64url');
+    const passwordHash = await hashPassword(password);
+    const created = await this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(users)
+        .values({
+          name: input.name,
+          email: input.email,
+          passwordHash,
+          phone: input.whatsapp,
+          whatsapp: input.whatsapp,
+          company: input.company || null,
+          country: input.country || null,
+          city: input.city || null,
+          role: UserRole.CLIENT,
+          status: 'active',
+          assignedManagerId: managerId,
+        })
+        .returning({ id: users.id, name: users.name, email: users.email });
+      if (input.startingCredits > 0) {
+        await this.credits.grant(row.id, input.startingCredits, 'manual_add', actorId, 'Starting credit (account created by staff)', tx);
+      }
+      await this.auditLog.record({ actorId, action: 'user.create_by_admin', targetType: 'user', targetId: row.id, metadata: { email: row.email, managerId, startingCredits: input.startingCredits } }, tx);
+      return row;
+    });
+    return { ...created, password, managerId };
+  }
 
   findUsersForActor(actor: { id: string; role: UserRole }, filters: UserListQuery = {}) {
     return this.repository.findUsersForActor(actor, filters);

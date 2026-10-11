@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { DashboardTopbar } from '@/components/dashboard-topbar';
 import { Avatar, Button, Card, CardHeader, ErrorBanner, Field, Input, Modal, Pill, Segmented, Select, Skeleton, Table, type Tone } from '@/components/dash/ui';
 import { useToast } from '@/components/dash/toast';
+import { CredentialsModal, type IssuedCredentials } from '@/components/admin/credentials-modal';
 import { useUser } from '@/lib/user-context';
 import { apiClient } from '@/lib/api-client';
 import { errorMessage, useApi } from '@/lib/use-api';
@@ -32,8 +33,8 @@ const MATRIX: [string, boolean, boolean, boolean][] = [
 ];
 
 function InviteCard({ onInvited }: { onInvited: () => void }) {
-  const toast = useToast();
-  const [form, setForm] = useState({ name: '', email: '', role: 'manager' as StaffRole, maxClients: '45' });
+  const [form, setForm] = useState({ name: '', email: '', role: 'manager' as StaffRole, maxClients: '45', password: '' });
+  const [issued, setIssued] = useState<IssuedCredentials | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,16 +42,18 @@ function InviteCard({ onInvited }: { onInvited: () => void }) {
     setError(null);
     if (form.name.trim().length < 2) return setError('Enter their full name.');
     if (!/^\S+@\S+\.\S+$/.test(form.email)) return setError('Enter a valid email.');
+    if (form.password && form.password.length < 10) return setError('Use at least 10 characters, or leave the password empty to generate one.');
     setBusy(true);
     try {
-      await apiClient.post('/admin/staff', {
+      const r = await apiClient.post<{ email: string; password: string; emailSent: boolean }>('/admin/staff', {
         name: form.name.trim(),
         email: form.email.trim(),
         role: form.role,
         maxClients: form.role === 'manager' && form.maxClients ? Number(form.maxClients) : null,
+        password: form.password || undefined,
       });
-      toast(`Invitation sent to ${form.email} with a temporary password`);
-      setForm({ name: '', email: '', role: 'manager', maxClients: '45' });
+      setIssued({ name: form.name.trim(), email: r.email, password: r.password, emailSent: r.emailSent, role: form.role });
+      setForm({ name: '', email: '', role: 'manager', maxClients: '45', password: '' });
       onInvited();
     } catch (e) {
       setError(errorMessage(e));
@@ -61,7 +64,7 @@ function InviteCard({ onInvited }: { onInvited: () => void }) {
 
   return (
     <Card>
-      <CardHeader title="Invite staff" />
+      <CardHeader title="Add staff" />
       <div className="p-4.5">
         <Field label="Full name"><Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} maxLength={120} /></Field>
         <Field label="Email"><Input type="email" placeholder="name@foxindex.com" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} /></Field>
@@ -77,9 +80,13 @@ function InviteCard({ onInvited }: { onInvited: () => void }) {
             <Input mono inputMode="numeric" value={form.maxClients} onChange={(e) => setForm((f) => ({ ...f, maxClients: e.target.value.replace(/\D/g, '') }))} />
           </Field>
         )}
+        <Field label="Password (optional)" hint="Leave empty to generate a strong one. You’ll see it once after creating the account.">
+          <Input type="text" autoComplete="new-password" mono value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
+        </Field>
         {error && <p role="alert" className="mb-2 text-[12.5px] text-auth-bad">{error}</p>}
-        <Button variant="primary" className="w-full" loading={busy} onClick={() => void invite()}>Send invitation</Button>
-        <p className="mt-2.5 text-xs text-auth-text3">They get an email with a one-time password and are asked to change it after signing in.</p>
+        <Button variant="primary" className="w-full" loading={busy} onClick={() => void invite()}>Create staff account</Button>
+        <p className="mt-2.5 text-xs text-auth-text3">The account works right away. We also email the login once email is set up.</p>
+        <CredentialsModal creds={issued} onClose={() => setIssued(null)} />
       </div>
     </Card>
   );

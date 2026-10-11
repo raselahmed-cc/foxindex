@@ -5,6 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { DashboardTopbar } from '@/components/dashboard-topbar';
 import { Avatar, Button, Card, Drawer, EmptyState, ErrorBanner, Field, Input, Pill, Segmented, Select, Skeleton, Table, type Tone } from '@/components/dash/ui';
 import { useToast } from '@/components/dash/toast';
+import { AddClientModal } from './add-client-modal';
+import { CredentialsModal, type IssuedCredentials } from './credentials-modal';
 import { useUser } from '@/lib/user-context';
 import { useNav } from '@/lib/nav-context';
 import { apiClient } from '@/lib/api-client';
@@ -196,6 +198,8 @@ export function UsersView({ mode }: { mode: 'all' | 'approvals' }) {
   const managers = useApi<{ id: string; name: string }[]>(isAdmin ? '/admin/managers' : null);
   const rows = users.data ?? [];
   const open = rows.find((u) => u.id === openId) ?? null;
+  const [adding, setAdding] = useState(false);
+  const [issued, setIssued] = useState<IssuedCredentials | null>(null);
 
   const title = mode === 'approvals' ? 'Approvals' : me.role === 'manager' ? 'My clients' : 'All users';
   const subtitle =
@@ -207,7 +211,18 @@ export function UsersView({ mode }: { mode: 'all' | 'approvals' }) {
 
   return (
     <>
-      <DashboardTopbar title={title} subtitle={subtitle} search={false} />
+      <DashboardTopbar title={title} subtitle={subtitle} search={false} action={isAdmin && mode !== 'approvals' ? <Button variant="primary" onClick={() => setAdding(true)}>Add user</Button> : undefined} />
+      <AddClientModal
+        open={adding}
+        managers={managers.data ?? []}
+        onClose={() => setAdding(false)}
+        onCreated={(c) => {
+          setAdding(false);
+          setIssued(c);
+          void users.reload();
+        }}
+      />
+      <CredentialsModal creds={issued} onClose={() => setIssued(null)} />
       <Card>
         <div className="flex flex-wrap items-center gap-2.5 border-b border-auth-line px-4.5 py-3">
           {mode === 'all' && (

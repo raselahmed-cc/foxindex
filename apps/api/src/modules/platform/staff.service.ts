@@ -61,7 +61,7 @@ export class StaffService {
     const existing = await this.db.query.users.findFirst({ where: eq(users.email, input.email), columns: { id: true } });
     if (existing) throw new ValidationError('Someone already uses that email', { reason: 'EMAIL_ALREADY_REGISTERED' });
 
-    const tempPassword = randomBytes(9).toString('base64url');
+    const tempPassword = input.password ?? randomBytes(12).toString('base64url');
     const [row] = await this.db
       .insert(users)
       .values({
@@ -77,6 +77,7 @@ export class StaffService {
     await this.auditLog.record({ actorId, action: 'staff.invite', targetType: 'user', targetId: row.id, metadata: { email: input.email, role: input.role } });
 
     const appUrl = process.env.CORS_ORIGIN ?? 'http://localhost:3000';
+    let emailSent = false;
     try {
       await this.mailer.send(
         input.email,
@@ -87,10 +88,12 @@ export class StaffService {
           <p>Email: <b>${escape(input.email)}</b><br>Temporary password: <b>${tempPassword}</b></p>
           <p>Change it right away under Settings → Security.</p></div>`,
       );
+      emailSent = true;
     } catch (error) {
       this.logger.warn(`staff invite email failed: ${(error as Error).message}`);
     }
-    return { id: row.id };
+    // Returned once so the inviter can hand the login over even if email isn't configured or fails.
+    return { id: row.id, email: input.email, password: tempPassword, emailSent };
   }
 
   async update(actor: { id: string; role: UserRole }, targetId: string, input: UpdateStaffInput) {

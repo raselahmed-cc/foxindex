@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { e164Phone } from './auth.schema';
 
 export const PROVIDER_KINDS = ['google_indexing', 'indexnow', 'external_api', 'search_console_sitemap'] as const;
 
@@ -45,8 +46,24 @@ export const inviteStaffSchema = z.object({
   email: z.email().transform((v) => v.toLowerCase()),
   role: z.enum(STAFF_ROLES),
   maxClients: z.number().int().positive().max(10_000).nullable().optional(),
+  /** Optional — when empty a one-time password is generated. Shown to the inviter once either way. */
+  password: z.string().min(10, 'Use at least 10 characters').max(200).optional(),
 });
 export type InviteStaffInput = z.infer<typeof inviteStaffSchema>;
+
+/** Admin-created customer account: active and email-verified immediately. */
+export const createClientSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  email: z.string().trim().toLowerCase().pipe(z.email('Enter a valid email')),
+  whatsapp: e164Phone('WhatsApp number'),
+  company: z.string().trim().max(160).optional(),
+  country: z.string().trim().max(120).optional(),
+  city: z.string().trim().max(120).optional(),
+  managerId: z.uuid().nullable().optional(),
+  startingCredits: z.number().int().min(0).max(1_000_000).default(0),
+  password: z.string().min(10, 'Use at least 10 characters').max(200).optional(),
+});
+export type CreateClientInput = z.infer<typeof createClientSchema>;
 
 export const updateStaffSchema = z.object({
   role: z.enum(STAFF_ROLES).optional(),

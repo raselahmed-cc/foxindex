@@ -2,11 +2,13 @@ import { Body, Controller, Get, Inject, Param, Patch, Post, Query, UseGuards } f
 import {
   approveUserSchema,
   assignManagerSchema,
+  createClientSchema,
   grantCreditsSchema,
   setUserStatusSchema,
   userListQuerySchema,
   type ApproveUserInput,
   type AssignManagerInput,
+  type CreateClientInput,
   type GrantCreditsInput,
   type SetUserStatusInput,
   type UserListQuery,
@@ -39,6 +41,12 @@ export class AdminController {
     @Query(new ZodValidationPipe(userListQuerySchema)) query: UserListQuery,
   ) {
     return this.admin.findUsersForActor(actor, query);
+  }
+
+  @Post('users')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
+  createClient(@CurrentUser() actor: AuthenticatedRequest['user'], @Body(new ZodValidationPipe(createClientSchema)) body: CreateClientInput) {
+    return this.admin.createClient(actor.id, body);
   }
 
   @Patch('users/:userId/status')
