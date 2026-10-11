@@ -11,9 +11,53 @@
   --color-destructive: #dc2626;
   --color-destructive-foreground: #fafafa;
   --color-success: #16a34a;
+
+  --font-sans: var(--font-plex-sans), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  /*
+   * Dark palette from the FoxIndex auth screens design (docs pending as
+   * foxindex-designs.html — CLAUDE.md "Frontend rules"). Scoped under an
+   * `auth-` prefix rather than replacing --color-background/-foreground/etc.
+   * above: the rest of the app (dashboard, admin) is still built against the
+   * light tokens, and swapping those wholesale would break their contrast
+   * without a matching pass over every existing page. Promote these to the
+   * primary token names once the full app gets this redesign.
+   */
+  --color-auth-bg: #0a0d12;
+  --color-auth-bg2: #0f131a;
+  --color-auth-surface: #141922;
+  --color-auth-surface2: #1a2029;
+  --color-auth-line: #222a36;
+  --color-auth-line2: #2c3644;
+  --color-auth-text: #e8ecf2;
+  --color-auth-text2: #a6b0c0;
+  --color-auth-text3: #6c7789;
+  --color-auth-accent: #6b8cff;
+  --color-auth-accent2: #4a6df0;
+  --color-auth-accent-soft: rgba(107, 140, 255, 0.14);
+  --color-auth-fox: #f28c3b;
+  --color-auth-fox2: #d9732b;
+  --color-auth-fox-soft: rgba(242, 140, 59, 0.14);
+  --color-auth-ok: #35d0b5;
+  --color-auth-ok-soft: rgba(53, 208, 181, 0.14);
+  --color-auth-warn: #f2b84b;
+  --color-auth-warn-soft: rgba(242, 184, 75, 0.14);
+  --color-auth-bad: #f26b7a;
+  --color-auth-bad-soft: rgba(242, 107, 122, 0.14);
+}
+
+html {
+  color-scheme: dark;
 }
 
 body {
-  background-color: var(--color-background);
-  color: var(--color-foreground);
+  background-color: var(--color-auth-bg);
+  color: var(--color-auth-text);
+}
+
+@keyframes auth-pulse {
+  50% {
+    box-shadow: 0 0 0 0 var(--color-auth-ok-soft);
+  }
 }

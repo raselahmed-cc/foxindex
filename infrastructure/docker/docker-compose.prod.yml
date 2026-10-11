@@ -1,0 +1,179 @@
+# Production stack for a single server (VPS). Everything is configured from
+# infrastructure/docker/.env.production — copy .env.production.example and fill it in.
+#
+#   cd infrastructure/docker
+#   docker compose -f docker-compose.prod.yml --env-file .env.production build
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+#   docker compose -f docker-compose.prod.yml --env-file .env.production run --rm seed   # first deploy only
+#
+# Caddy terminates TLS (automatic Let's Encrypt for $DOMAIN) and routes:
+#   https://$DOMAIN/api/*, /socket.io/*  → api      everything else → web
+#
+# Using managed Postgres/Redis instead: point DATABASE_URL / REDIS_URL at them
+# (set DATABASE_SSL=true) and remove the postgres/redis services + depends_on.
+# Redis MUST use maxmemory-policy noeviction (BullMQ requirement).
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '20m'
+    max-file: '5'
+
+x-app-env: &app-env
+  NODE_ENV: production
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  DATABASE_URL: ${DATABASE_URL}
+  DATABASE_SSL: ${DATABASE_SSL:-false}
+  REDIS_URL: ${REDIS_URL}
+  ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-foxindex}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-foxindex}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-foxindex}']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    logging: *logging
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # BullMQ needs noeviction; AOF keeps queued jobs across restarts.
+    command: redis-server --maxmemory-policy noeviction --appendonly yes --requirepass ${REDIS_PASSWORD:?set REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" --no-auth-warning ping | grep PONG']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    logging: *logging
+
+  # One-shot: applies pending migrations, then exits. api/worker wait for it.
+  migrate:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.api
+    image: foxindex-api:${IMAGE_TAG:-latest}
+    command: ['node', 'packages/database/dist/migrate.js']
+    environment:
+      <<: *app-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+    logging: *logging
+
+  # First deploy only: creates the superadmin + catalog defaults (idempotent).
+  seed:
+    image: foxindex-api:${IMAGE_TAG:-latest}
+    command: ['node', 'packages/database/dist/seed.js']
+    environment:
+      <<: *app-env
+      SEED_SUPERADMIN_EMAIL: ${SEED_SUPERADMIN_EMAIL}
+      SEED_PASSWORD: ${SEED_PASSWORD}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    profiles: ['seed']
+    restart: 'no'
+
+  api:
+    image: foxindex-api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      API_PORT: 3001
+      CORS_ORIGIN: https://${DOMAIN}
+      API_PUBLIC_URL: https://${DOMAIN}
+      JWT_SECRET: ${JWT_SECRET}
+      TRUST_PROXY: ${TRUST_PROXY:-uniquelocal}
+      API_DOCS_ENABLED: ${API_DOCS_ENABLED:-false}
+      DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-20}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_FROM: ${SMTP_FROM}
+      AAMARPAY_STORE_ID: ${AAMARPAY_STORE_ID:-}
+      AAMARPAY_SIGNATURE_KEY: ${AAMARPAY_SIGNATURE_KEY:-}
+      AAMARPAY_SANDBOX: ${AAMARPAY_SANDBOX:-false}
+    volumes:
+      # Ticket/chat attachments. With more than one API replica this must be shared storage.
+      - uploads:/data/uploads
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    expose:
+      - '3001'
+    logging: *logging
+
+  worker-submission:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.worker
+      args:
+        WORKER_NAME: submission
+    image: foxindex-worker-submission:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      SUBMISSION_WORKER_CONCURRENCY: ${SUBMISSION_WORKER_CONCURRENCY:-4}
+      INDEXNOW_API_BASE_URL: https://api.indexnow.org/indexnow
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    logging: *logging
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.web
+      args:
+        NEXT_PUBLIC_API_URL: https://${DOMAIN}
+    image: foxindex-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    expose:
+      - '3000'
+    logging: *logging
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+      - web
+    logging: *logging
+
+volumes:
+  postgres-data:
+  redis-data:
+  uploads:
+  caddy-data:
+  caddy-config:

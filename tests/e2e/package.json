@@ -4,14 +4,9 @@
   "private": true,
   "scripts": {
     "test:e2e": "playwright test",
-    "key-server": "tsx fixtures/servers/key-file-server.ts",
     "indexnow-mock": "tsx fixtures/servers/indexnow-mock-server.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@foxindex/database": "workspace:*",
-    "drizzle-orm": "0.45.2"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",

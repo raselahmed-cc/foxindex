@@ -4,14 +4,16 @@ import type IORedis from 'ioredis';
 import { RateLimitedError } from '../errors/app-error';
 import { REDIS_CONNECTION } from '../../redis/redis.module';
 import { RATE_LIMIT_KEY, type RateLimitOptions } from '../decorators/rate-limit.decorator';
-import type { TenantContextRequest } from './tenant-context.guard';
+import type { CallerRequest } from './caller-request';
 
 /**
- * Organization-scoped fixed-window rate limiting (constitution §13's
- * "Organization" tier — Cloudflare/provider tiers are out of scope until
- * those are actually deployed). A simple INCR+EXPIRE counter, not a token
- * bucket — good enough for Phase 1's one rate-limited route and avoids
- * pulling in a rate-limiting library for a single use site.
+ * Per-caller fixed-window rate limiting (constitution §13 — Cloudflare/
+ * provider tiers are out of scope until those are actually deployed). A
+ * simple INCR+EXPIRE counter, not a token bucket — good enough for Phase
+ * 1's one rate-limited route. Scoped by user id for a session caller, or
+ * by project id for an API-key caller (docs/adr/0013: an API key doesn't
+ * carry a user id directly, and its own project id is a perfectly stable
+ * per-caller identifier for this purpose).
  */
 @Injectable()
 export class RateLimitGuard implements CanActivate {
@@ -29,8 +31,8 @@ export class RateLimitGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest<TenantContextRequest>();
-    const identifier = request.tenant?.organizationId ?? request.ip ?? 'unknown';
+    const request = context.switchToHttp().getRequest<CallerRequest>();
+    const identifier = request.user?.id ?? request.apiKey?.userId ?? request.ip ?? 'unknown';
     const key = `ratelimit:${options.scope}:${identifier}`;
 
     const count = await this.redis.incr(key);

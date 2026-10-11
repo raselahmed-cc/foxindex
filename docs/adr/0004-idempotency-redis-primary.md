@@ -1,5 +1,9 @@
 # 0004: Idempotency is Redis-primary; the DB column is defense-in-depth
 
+> **Scoping key updated by [ADR 0013](./0013-flatten-to-project-single-indexnow-key.md).**
+> The mechanism below is unchanged; every `organizationId` mentioned here is
+> now `userId` (there is no organization left to scope by).
+
 ## Status
 
 Accepted.

@@ -1,0 +1,1 @@
+ALTER TABLE "tickets" ADD COLUMN "sla_paused_minutes" integer DEFAULT 0 NOT NULL;

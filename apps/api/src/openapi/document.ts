@@ -2,14 +2,13 @@ import { OpenApiGeneratorV31 } from '@asteasolutions/zod-to-openapi';
 import type { OpenAPIObject } from '@nestjs/swagger';
 import { openApiRegistry } from './registry';
 import './health.openapi';
+import './auth.openapi';
 import './me.openapi';
-import './organizations.openapi';
-import './projects.openapi';
-import './domains.openapi';
-import './urls.openapi';
-import './submissions.openapi';
 import './api-keys.openapi';
+import './tracking.openapi';
 import './credits.openapi';
+import './admin.openapi';
+import './chat.openapi';
 
 /**
  * zod-to-openapi and @nestjs/swagger each vendor their own (near-identical,
@@ -30,7 +29,7 @@ export function buildOpenApiDocument(): OpenAPIObject {
       title: 'FoxIndex API',
       version: '1.0.0',
       description:
-        'FoxIndex accepts URLs for fast, legitimate discovery submission (IndexNow), verifies domain ownership, and reports submission status. It does not and cannot guarantee Google will index a given URL — see /docs/architecture.md.',
+        'FoxIndex accepts URLs for fast, legitimate discovery submission (IndexNow) and reports submission status. It does not and cannot guarantee Google will index a given URL — see /docs/architecture.md.',
     },
     servers: [{ url: '/api/v1', description: 'Current version' }],
   });

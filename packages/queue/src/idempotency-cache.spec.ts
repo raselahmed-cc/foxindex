@@ -38,35 +38,35 @@ describe('IdempotencyCache', () => {
   });
 
   it('lets the first request with a given key proceed', async () => {
-    const result = await cache.begin('org_1', 'key_1');
+    const result = await cache.begin('user_1', 'key_1');
     expect(result).toEqual({ status: 'proceed' });
   });
 
   it('reports a second concurrent request with the same key as in-flight', async () => {
-    await cache.begin('org_1', 'key_1');
-    const second = await cache.begin('org_1', 'key_1');
+    await cache.begin('user_1', 'key_1');
+    const second = await cache.begin('user_1', 'key_1');
     expect(second).toEqual({ status: 'in-flight' });
   });
 
   it('replays the cached response once the first request completes', async () => {
-    await cache.begin('org_1', 'key_1');
-    await cache.complete('org_1', 'key_1', { submissionId: 'sub_123' });
+    await cache.begin('user_1', 'key_1');
+    await cache.complete('user_1', 'key_1', { submissionId: 'sub_123' });
 
-    const replay = await cache.begin('org_1', 'key_1');
+    const replay = await cache.begin('user_1', 'key_1');
     expect(replay).toEqual({ status: 'cached', response: { submissionId: 'sub_123' } });
   });
 
-  it('scopes keys per organization — different orgs with the same key do not collide', async () => {
-    await cache.begin('org_1', 'key_1');
-    const otherOrg = await cache.begin('org_2', 'key_1');
-    expect(otherOrg).toEqual({ status: 'proceed' });
+  it('scopes keys per user — different users with the same key do not collide', async () => {
+    await cache.begin('user_1', 'key_1');
+    const otherUser = await cache.begin('user_2', 'key_1');
+    expect(otherUser).toEqual({ status: 'proceed' });
   });
 
   it('release() clears the lock so a retry after failure is treated as fresh', async () => {
-    await cache.begin('org_1', 'key_1');
-    await cache.release('org_1', 'key_1');
+    await cache.begin('user_1', 'key_1');
+    await cache.release('user_1', 'key_1');
 
-    const retry = await cache.begin('org_1', 'key_1');
+    const retry = await cache.begin('user_1', 'key_1');
     expect(retry).toEqual({ status: 'proceed' });
   });
 
@@ -78,7 +78,7 @@ describe('IdempotencyCache', () => {
       del: async () => 0,
     };
     const racyCache = new IdempotencyCache(racyRedis);
-    const result = await racyCache.begin('org_1', 'key_1');
+    const result = await racyCache.begin('user_1', 'key_1');
     expect(result).toEqual({ status: 'proceed' });
   });
 });

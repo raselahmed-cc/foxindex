@@ -1,0 +1,31 @@
+import { pgTable, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
+import { user } from './auth';
+
+/**
+ * The one container a user's submissions live under (docs/adr/0013 —
+ * organizations and per-domain modeling were both removed). `indexnowKey`
+ * is generated once, at creation, and used for every URL submitted in this
+ * project regardless of hostname — this only works cleanly when a
+ * project's URLs are all on one real website, since IndexNow itself still
+ * independently requires that exact key to be hosted at the URL's actual
+ * domain root; that's an accepted, explicit tradeoff, not an oversight.
+ */
+export const projects = pgTable(
+  'projects',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    name: varchar('name', { length: 255 }).notNull(),
+    slug: varchar('slug', { length: 100 }).notNull(),
+    indexnowKey: varchar('indexnow_key', { length: 128 }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('projects_user_slug_unique').on(table.userId, table.slug),
+    uniqueIndex('projects_indexnow_key_unique').on(table.indexnowKey),
+  ],
+);

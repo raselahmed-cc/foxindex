@@ -1,22 +1,16 @@
 import type { SubmissionProvider } from '../enums';
 
-/** Common fields every FoxIndex job payload must carry (constitution §12). */
-interface BaseJobPayload {
-  organizationId: string;
-  projectId: string;
-  attempt: number;
-  requestedAt: string;
-}
-
-export interface SubmissionJobPayload extends BaseJobPayload {
+/**
+ * Submission jobs are scoped by project (which owns the one IndexNow key
+ * used for every URL in it, docs/adr/0013) — no more organizationId, no
+ * domainId (there is no per-domain model anymore).
+ */
+export interface SubmissionJobPayload {
   jobType: 'URL_SUBMISSION';
-  domainId: string;
+  projectId: string;
   urlId: string;
   urlSubmissionId: string;
   provider: SubmissionProvider;
-}
-
-export interface VerificationJobPayload extends BaseJobPayload {
-  jobType: 'DOMAIN_VERIFICATION';
-  domainId: string;
+  attempt: number;
+  requestedAt: string;
 }

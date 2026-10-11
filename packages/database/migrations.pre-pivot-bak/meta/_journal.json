@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1787922931547,
+      "tag": "0000_long_squirrel_girl",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789166564545,
+      "tag": "0001_amazing_spacker_dave",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789174158500,
+      "tag": "0002_flatten_to_project_model",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789174200000,
+      "tag": "0003_flatten_to_project_model_finalize",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789174740833,
+      "tag": "0004_drop_projects_created_by_user_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789175223673,
+      "tag": "0005_audit_logs_resource_id_text",
+      "breakpoints": true
+    }
+  ]
+}

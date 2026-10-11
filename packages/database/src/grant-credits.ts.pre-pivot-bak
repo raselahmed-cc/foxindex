@@ -1,0 +1,66 @@
+import { resolve } from 'node:path';
+import { config } from 'dotenv';
+import { eq, sql } from 'drizzle-orm';
+import { CreditLedgerReason } from '@foxindex/types';
+import { createDbClient } from './client';
+import { creditLedger, user } from './schema';
+
+config({ path: resolve(__dirname, '../../../.env'), quiet: true });
+
+/**
+ * Dev-only credit top-up — there is deliberately no self-serve API endpoint
+ * for this (see docs/adr/0011): a "grant yourself free credits" button would
+ * be a fake feature shipped in a real product surface. The Admin/Super Admin
+ * grant-credits endpoint (apps/api's admin module) is the real UI-facing
+ * path; this script stays for scripting/ops use where hitting the API isn't
+ * convenient. Duplicates apps/api's CreditsRepository.grant()'s shape rather
+ * than importing it — packages can't depend on apps — keep the two in sync
+ * if that shape changes.
+ *
+ * Usage: pnpm credits:grant <userId-or-email> <amount>
+ */
+async function main() {
+  const [userIdOrEmail, amountArg] = process.argv.slice(2);
+  if (!userIdOrEmail || !amountArg) {
+    throw new Error('Usage: pnpm credits:grant <userId-or-email> <amount>');
+  }
+  const amount = Number(amountArg);
+  if (!Number.isInteger(amount) || amount <= 0) {
+    throw new Error(`Amount must be a positive integer, got: ${amountArg}`);
+  }
+
+  const connectionString =
+    process.env.DATABASE_URL ?? 'postgres://foxindex:foxindex@localhost:5432/foxindex';
+  const { db, pool } = createDbClient({ connectionString });
+
+  try {
+    const isEmail = userIdOrEmail.includes('@');
+
+    const newBalance = await db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(user)
+        .set({ creditBalance: sql`${user.creditBalance} + ${amount}`, updatedAt: new Date() })
+        .where(isEmail ? eq(user.email, userIdOrEmail) : eq(user.id, userIdOrEmail))
+        .returning({ id: user.id, creditBalance: user.creditBalance });
+
+      if (!updated) throw new Error(`No user found for "${userIdOrEmail}"`);
+
+      await tx.insert(creditLedger).values({
+        userId: updated.id,
+        delta: amount,
+        reason: CreditLedgerReason.MANUAL_GRANT,
+      });
+
+      return updated.creditBalance;
+    });
+
+    console.log(`Granted ${amount} credits to ${userIdOrEmail}. New balance: ${newBalance}.`);
+  } finally {
+    await pool.end();
+  }
+}
+
+main().catch((error) => {
+  console.error('Grant failed:', error);
+  process.exit(1);
+});

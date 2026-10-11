@@ -1,5 +1,11 @@
 # 0012: Submitting a URL no longer requires pre-registering its domain
 
+> **Superseded by [ADR 0013](./0013-flatten-to-project-single-indexnow-key.md).**
+> This ADR's auto-created domains were themselves removed shortly after —
+> a project now has exactly one IndexNow key, used for every URL, and
+> there is no `domains` table left to auto-create rows in. Kept as
+> historical record of the intermediate step.
+
 ## Status
 
 Accepted.

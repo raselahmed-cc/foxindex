@@ -9,11 +9,13 @@ module.exports = tseslint.config(
     ignores: [
       '**/dist/**',
       '**/.next/**',
+      '**/.next-prod/**',
       '**/.turbo/**',
       '**/coverage/**',
       '**/node_modules/**',
       '**/playwright-report/**',
       '**/test-results/**',
+      'archive/**',
     ],
   },
   eslint.configs.recommended,

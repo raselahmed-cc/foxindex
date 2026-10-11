@@ -4,3 +4,5 @@ export * from './retry/backoff';
 export * from './indexnow/indexnow.provider';
 export * from './indexnow/indexnow.constants';
 export * from './indexnow/generate-key';
+export * from './google/google-indexing.client';
+export * from './credentials/secret-box';

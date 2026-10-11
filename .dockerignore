@@ -1,0 +1,21 @@
+# Never bake secrets or local state into images.
+**/.env
+**/.env.*
+!.env.example
+!**/.env.production.example
+**/node_modules
+**/.next
+**/.next-prod
+**/dist
+**/.turbo
+**/coverage
+**/*.tsbuildinfo
+apps/api/uploads
+tests/e2e/test-results
+tests/e2e/playwright-report
+archive
+.git
+.github
+*.png
+*.zip
+foxindex-designs.html

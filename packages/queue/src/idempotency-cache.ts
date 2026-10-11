@@ -54,12 +54,12 @@ export class IdempotencyCache {
     this.lockTtlSeconds = options.lockTtlSeconds ?? DEFAULT_LOCK_TTL_SECONDS;
   }
 
-  private cacheKey(organizationId: string, idempotencyKey: string): string {
-    return `idempotency:${organizationId}:${idempotencyKey}`;
+  private cacheKey(userId: string, idempotencyKey: string): string {
+    return `idempotency:${userId}:${idempotencyKey}`;
   }
 
-  async begin(organizationId: string, idempotencyKey: string): Promise<IdempotencyBeginResult> {
-    const key = this.cacheKey(organizationId, idempotencyKey);
+  async begin(userId: string, idempotencyKey: string): Promise<IdempotencyBeginResult> {
+    const key = this.cacheKey(userId, idempotencyKey);
     const acquired = await this.redis.set(
       key,
       JSON.stringify({ state: 'pending' } satisfies CacheEntry),
@@ -85,8 +85,8 @@ export class IdempotencyCache {
     return { status: 'cached', response: entry.response };
   }
 
-  async complete(organizationId: string, idempotencyKey: string, response: unknown): Promise<void> {
-    const key = this.cacheKey(organizationId, idempotencyKey);
+  async complete(userId: string, idempotencyKey: string, response: unknown): Promise<void> {
+    const key = this.cacheKey(userId, idempotencyKey);
     await this.redis.set(
       key,
       JSON.stringify({ state: 'done', response } satisfies CacheEntry),
@@ -96,7 +96,7 @@ export class IdempotencyCache {
   }
 
   /** Called on failure so a retry isn't stuck behind a dead lock until it expires. */
-  async release(organizationId: string, idempotencyKey: string): Promise<void> {
-    await this.redis.del(this.cacheKey(organizationId, idempotencyKey));
+  async release(userId: string, idempotencyKey: string): Promise<void> {
+    await this.redis.del(this.cacheKey(userId, idempotencyKey));
   }
 }

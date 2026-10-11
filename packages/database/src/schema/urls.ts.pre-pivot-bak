@@ -1,0 +1,25 @@
+import { char, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
+import { user } from './auth';
+import { projects } from './projects';
+
+/**
+ * The (project_id, normalized_url_hash) unique constraint is the dedupe mechanism
+ * from constitution §10 — a re-submission of an already-known URL upserts onto
+ * this row instead of creating a duplicate. Read-only from the API in Phase 1;
+ * rows are only ever created as a side effect of a submission request.
+ */
+export const urls = pgTable(
+  'urls',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    rawUrl: varchar('raw_url', { length: 2048 }).notNull(),
+    normalizedUrl: varchar('normalized_url', { length: 2048 }).notNull(),
+    normalizedUrlHash: char('normalized_url_hash', { length: 64 }).notNull(),
+    createdByUserId: text('created_by_user_id').references(() => user.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('urls_project_normalized_hash_unique').on(table.projectId, table.normalizedUrlHash)],
+);

@@ -3,7 +3,7 @@ import pino, { type Logger } from 'pino';
 export interface LoggerContext {
   requestId?: string;
   traceId?: string;
-  organizationId?: string;
+  userId?: string;
   projectId?: string;
   jobId?: string;
   [key: string]: unknown;

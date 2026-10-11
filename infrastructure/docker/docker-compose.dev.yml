@@ -59,11 +59,8 @@ services:
       CORS_ORIGIN: http://localhost
       DATABASE_URL: postgres://foxindex:foxindex@postgres:5432/foxindex
       REDIS_URL: redis://redis:6379
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-only-change-me-to-a-long-random-string}
-      # Bare origin — Better Auth appends /api/auth itself (confirmed via
-      # local, non-Docker testing: BETTER_AUTH_URL=http://localhost:3001
-      # produced working /api/auth/verify-email links).
-      BETTER_AUTH_URL: http://localhost
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me-to-a-long-random-string}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev-only-encryption-key-change-me}
       SMTP_HOST: maildev
       SMTP_PORT: 1025
       SMTP_FROM: FoxIndex <no-reply@foxindex.dev>
@@ -88,23 +85,6 @@ services:
       REDIS_URL: redis://redis:6379
       SUBMISSION_WORKER_CONCURRENCY: 5
       INDEXNOW_API_BASE_URL: https://api.indexnow.org/indexnow
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  worker-verification:
-    build:
-      context: ../..
-      dockerfile: infrastructure/docker/Dockerfile.worker
-      args:
-        WORKER_NAME: verification
-    environment:
-      LOG_LEVEL: info
-      DATABASE_URL: postgres://foxindex:foxindex@postgres:5432/foxindex
-      REDIS_URL: redis://redis:6379
-      VERIFICATION_WORKER_CONCURRENCY: 5
     depends_on:
       postgres:
         condition: service_healthy

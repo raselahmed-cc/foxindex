@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 
+export const API_KEY_PREFIX = 'fx_';
 const KEY_PREFIX = 'fx_live_';
 
 export interface GeneratedApiKey {

@@ -1,34 +1,31 @@
 import { z } from 'zod';
-import { CreditLedgerReason } from '@foxindex/types';
 import { openApiRegistry } from './registry';
 
-const creditLedgerEntrySchema = z.object({
+const creditTransactionSchema = z.object({
   id: z.uuid(),
-  organizationId: z.uuid(),
-  delta: z.number().int(),
-  reason: z.enum(CreditLedgerReason),
-  metadata: z.record(z.string(), z.unknown()).nullable(),
+  userId: z.uuid(),
+  amount: z.number().int(),
+  type: z.enum(['signup_bonus', 'manual_add', 'submission_deduct', 'refund', 'payment_credit']),
+  performedBy: z.uuid().nullable(),
+  referenceId: z.uuid().nullable(),
+  note: z.string().nullable(),
   createdAt: z.string(),
 });
 
-const organizationIdParam = z.object({ organizationId: z.uuid() });
-
 openApiRegistry.registerPath({
   method: 'get',
-  path: '/organizations/{organizationId}/credits',
-  summary: 'Get the organization’s credit balance and recent ledger entries',
+  path: '/credits',
+  summary: 'Get the signed-in user’s own credit balance and recent transactions',
   tags: ['Credits'],
-  security: [{ session: [] }],
-  request: { params: organizationIdParam },
+  security: [{ bearer: [] }],
   responses: {
     200: {
       description: 'OK',
       content: {
         'application/json': {
-          schema: z.object({ balance: z.number().int(), recentLedger: z.array(creditLedgerEntrySchema) }),
+          schema: z.object({ balance: z.number().int(), recentTransactions: z.array(creditTransactionSchema) }),
         },
       },
     },
-    404: { description: 'Not found' },
   },
 });

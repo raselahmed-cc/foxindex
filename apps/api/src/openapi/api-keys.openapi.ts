@@ -1,64 +1,55 @@
 import { z } from 'zod';
-import { createApiKeySchema } from '@foxindex/validation';
-import { ApiKeyScope } from '@foxindex/types';
+import { API_KEY_SCOPES, createApiKeySchema, updateApiKeySchema } from '@foxindex/validation';
 import { openApiRegistry } from './registry';
 
 const apiKeySchema = z.object({
   id: z.uuid(),
-  organizationId: z.uuid(),
-  projectId: z.uuid().nullable(),
   name: z.string(),
   keyPrefix: z.string(),
-  scopes: z.array(z.enum(ApiKeyScope)),
+  keyLast4: z.string(),
+  scopes: z.array(z.enum(API_KEY_SCOPES)),
+  siteId: z.uuid().nullable(),
+  monthlyCreditCap: z.number().int().nullable(),
+  ipAllowlist: z.array(z.string()),
   lastUsedAt: z.string().nullable(),
-  expiresAt: z.string().nullable(),
-  revokedAt: z.string().nullable(),
   createdAt: z.string(),
 });
 
-const organizationIdParam = z.object({ organizationId: z.uuid() });
-
 openApiRegistry.registerPath({
   method: 'post',
-  path: '/organizations/{organizationId}/api-keys',
-  summary: 'Create an API key (OWNER/ADMIN only) — plaintext shown once',
-  tags: ['API Keys'],
-  security: [{ session: [] }],
-  request: {
-    params: organizationIdParam,
-    body: { content: { 'application/json': { schema: createApiKeySchema } } },
-  },
-  responses: {
-    201: {
-      description: 'Created — `plaintext` is the only time the full key is ever returned',
-      content: {
-        'application/json': { schema: apiKeySchema.extend({ plaintext: z.string() }) },
-      },
-    },
-  },
+  path: '/api-keys',
+  summary: 'Create an API key — the plaintext key is returned once',
+  tags: ['API keys'],
+  security: [{ bearer: [] }],
+  request: { body: { content: { 'application/json': { schema: createApiKeySchema } } } },
+  responses: { 201: { description: 'Created', content: { 'application/json': { schema: apiKeySchema.extend({ plaintext: z.string() }) } } } },
 });
 
 openApiRegistry.registerPath({
   method: 'get',
-  path: '/organizations/{organizationId}/api-keys',
-  summary: 'List API keys (OWNER/ADMIN only) — never includes the key hash',
-  tags: ['API Keys'],
-  security: [{ session: [] }],
-  request: { params: organizationIdParam },
-  responses: {
-    200: { description: 'OK', content: { 'application/json': { schema: z.array(apiKeySchema) } } },
-  },
+  path: '/api-keys',
+  summary: 'List your API keys (never includes the key itself)',
+  tags: ['API keys'],
+  security: [{ bearer: [] }],
+  responses: { 200: { description: 'OK', content: { 'application/json': { schema: z.object({ keys: z.array(apiKeySchema) }) } } } },
+});
+
+openApiRegistry.registerPath({
+  method: 'patch',
+  path: '/api-keys/{keyId}',
+  summary: 'Change a key’s name, scopes, site, monthly cap or IP allowlist',
+  tags: ['API keys'],
+  security: [{ bearer: [] }],
+  request: { params: z.object({ keyId: z.uuid() }), body: { content: { 'application/json': { schema: updateApiKeySchema } } } },
+  responses: { 200: { description: 'OK', content: { 'application/json': { schema: apiKeySchema } } } },
 });
 
 openApiRegistry.registerPath({
   method: 'delete',
-  path: '/organizations/{organizationId}/api-keys/{keyId}',
-  summary: 'Revoke an API key (OWNER/ADMIN only)',
-  tags: ['API Keys'],
-  security: [{ session: [] }],
-  request: { params: z.object({ organizationId: z.uuid(), keyId: z.uuid() }) },
-  responses: {
-    200: { description: 'OK', content: { 'application/json': { schema: apiKeySchema } } },
-    404: { description: 'Not found' },
-  },
+  path: '/api-keys/{keyId}',
+  summary: 'Revoke an API key',
+  tags: ['API keys'],
+  security: [{ bearer: [] }],
+  request: { params: z.object({ keyId: z.uuid() }) },
+  responses: { 200: { description: 'Revoked' } },
 });

@@ -1,13 +1,14 @@
 /**
- * All 7 workload queues named in the constitution are declared here so every
- * app/worker references the same string constants — but only SUBMISSION and
- * VERIFICATION get an actual BullMQ Queue+Worker instantiated in Phase 1 (no idle
- * Redis connections for the rest). See workers/crawler|sitemap|diagnostics'
- * README stubs for what each is reserved for.
+ * Workload queues named in the constitution are declared here so every
+ * app/worker references the same string constants — but only SUBMISSION
+ * gets an actual BullMQ Queue+Worker instantiated (no idle Redis
+ * connections for the rest). VERIFICATION was removed entirely (docs/adr/0013
+ * — no more per-domain verification; a project's IndexNow key is generated
+ * and used directly). See workers/crawler|sitemap|diagnostics' README stubs
+ * for what each remaining name is reserved for.
  */
 export const QUEUE_NAMES = {
   SUBMISSION: 'submission',
-  VERIFICATION: 'verification',
   CRAWLER: 'crawler',
   SITEMAP: 'sitemap',
   DIAGNOSTICS: 'diagnostics',

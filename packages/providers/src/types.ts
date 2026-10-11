@@ -9,7 +9,6 @@ export interface ProviderCredentials {
 }
 
 export interface SubmissionRequest {
-  organizationId: string;
   domainHostname: string;
   urls: string[];
   credentials: ProviderCredentials;

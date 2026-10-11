@@ -1,7 +1,7 @@
 # FoxIndex
 
-Multi-tenant SaaS for fast, legitimate URL discovery/indexing submission
-(via IndexNow), domain verification, and index-status monitoring. See
+SaaS for fast, legitimate URL discovery/indexing submission (via
+IndexNow) and index-status monitoring. See
 [docs/architecture.md](./docs/architecture.md) for what's actually built
 and how it fits together.
 
@@ -27,7 +27,7 @@ pnpm db:migrate
 # Web UI at http://localhost:1080
 pnpm --filter @foxindex/e2e exec maildev
 
-# Terminal 2 — API, web app, and both workers together
+# Terminal 2 — API, web app, and the submission worker together
 pnpm dev
 ```
 

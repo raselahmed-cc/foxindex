@@ -17,10 +17,10 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/migrate.ts",
-    "grant-credits": "tsx src/grant-credits.ts"
+    "db:seed": "tsx src/seed.ts"
   },
   "dependencies": {
-    "@foxindex/types": "workspace:*",
+    "argon2": "0.41.1",
     "drizzle-orm": "0.45.2",
     "pg": "8.23.0"
   },

@@ -12,13 +12,18 @@ import { LoggerModule } from './logger/logger.module';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
-import { OrganizationsModule } from './modules/organizations/organizations.module';
-import { ProjectsModule } from './modules/projects/projects.module';
-import { DomainsModule } from './modules/domains/domains.module';
-import { UrlsModule } from './modules/urls/urls.module';
-import { SubmissionsModule } from './modules/submissions/submissions.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
 import { CreditsModule } from './modules/credits/credits.module';
+import { AdminModule } from './modules/admin/admin.module';
+import { ChatModule } from './modules/chat/chat.module';
+import { BillingModule } from './modules/billing/billing.module';
+import { PlatformModule } from './modules/platform/platform.module';
+import { BatchesModule } from './modules/batches/batches.module';
+import { TrackingModule } from './modules/tracking/tracking.module';
+import { RealtimeModule } from './common/realtime/realtime.service';
+import { FilesModule } from './modules/files/files.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { TicketsModule } from './modules/tickets/tickets.module';
 import { QueuesModule } from './queues/queues.module';
 import { IdempotencyModule } from './common/idempotency/idempotency.module';
 
@@ -31,15 +36,20 @@ import { IdempotencyModule } from './common/idempotency/idempotency.module';
     QueuesModule,
     IdempotencyModule,
     AuditLogsModule,
+    RealtimeModule,
+    FilesModule,
+    NotificationsModule,
     HealthModule,
     AuthModule,
-    OrganizationsModule,
-    ProjectsModule,
-    DomainsModule,
-    UrlsModule,
     ApiKeysModule,
     CreditsModule,
-    SubmissionsModule,
+    AdminModule,
+    ChatModule,
+    BillingModule,
+    PlatformModule,
+    BatchesModule,
+    TrackingModule,
+    TicketsModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

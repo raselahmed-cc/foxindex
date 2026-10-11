@@ -1,3 +1,5 @@
+import { getAccessToken } from './auth-store';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
 export interface ApiErrorBody {
@@ -27,14 +29,20 @@ interface ApiEnvelope<T> {
 /**
  * The dashboard never talks to Postgres directly — every request goes through
  * this client to apps/api (constitution §7). `credentials: 'include'` sends
- * the Better Auth session cookie; the API's CORS config explicitly allows
- * credentialed requests from CORS_ORIGIN.
+ * the httpOnly refresh-token cookie (only actually read by /auth/refresh and
+ * /auth/logout, per its cookie path); the access token, when present, is
+ * attached as a Bearer header from the in-memory auth-store.
  */
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const accessToken = getAccessToken();
   const response = await fetch(`${API_URL}/api/v1${path}`, {
     ...options,
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...options.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      ...options.headers,
+    },
   });
 
   const body = (await response.json().catch(() => undefined)) as ApiEnvelope<T> | undefined;
@@ -56,5 +64,26 @@ export const apiClient = {
     request<T>(path, { method: 'POST', body: data ? JSON.stringify(data) : undefined, headers }),
   patch: <T>(path: string, data?: unknown): Promise<T> =>
     request<T>(path, { method: 'PATCH', body: data ? JSON.stringify(data) : undefined }),
+  put: <T>(path: string, data?: unknown): Promise<T> =>
+    request<T>(path, { method: 'PUT', body: data ? JSON.stringify(data) : undefined }),
   delete: <T>(path: string): Promise<T> => request<T>(path, { method: 'DELETE' }),
 };
+
+/** Authenticated file download (e.g. CSV export) — saves the response body under `filename`. */
+export async function downloadFile(path: string, filename: string): Promise<void> {
+  const accessToken = getAccessToken();
+  const response = await fetch(`${API_URL}/api/v1${path}`, {
+    credentials: 'include',
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => undefined)) as ApiEnvelope<unknown> | undefined;
+    throw new ApiError(body?.error?.code ?? 'NETWORK_ERROR', body?.error?.message ?? `Download failed (${response.status})`);
+  }
+  const url = URL.createObjectURL(await response.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

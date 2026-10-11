@@ -37,6 +37,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
   constructor(@Inject(LOGGER) private readonly logger: Logger) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
+    if (host.getType() !== 'http') {
+      // WebSocket handlers return their own {error} acks; anything that escapes is logged, never written to an HTTP response.
+      this.logger.error({ event: 'ws.exception', stack: exception instanceof Error ? exception.stack : undefined }, exception instanceof Error ? exception.message : 'WebSocket error');
+      return;
+    }
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<RequestWithId>();
@@ -110,6 +115,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
         code,
         message,
         details: Object.keys(rest).length > 0 ? rest : undefined,
+      };
+    }
+
+    // body-parser / http-errors (oversized or malformed JSON) carry a safe 4xx status + message.
+    const httpError = exception as { status?: unknown; expose?: unknown; type?: unknown };
+    if (typeof httpError.status === 'number' && httpError.status >= 400 && httpError.status < 500 && httpError.expose === true) {
+      return {
+        status: httpError.status,
+        code: ErrorCode.VALIDATION_ERROR,
+        message: httpError.type === 'entity.too.large' ? 'Request is too large' : httpError.type === 'entity.parse.failed' ? 'Request body is not valid JSON' : 'Bad request',
       };
     }
 

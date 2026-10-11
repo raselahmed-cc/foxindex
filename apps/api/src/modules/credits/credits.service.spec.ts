@@ -1,29 +1,32 @@
 import { describe, expect, it, vi } from 'vitest';
-import { NotFoundError } from '../../common/errors/app-error';
 import { CreditsService } from './credits.service';
+import { NotFoundError } from '../../common/errors/app-error';
 import type { CreditsRepository } from './credits.repository';
 
-describe('CreditsService.getBalanceWithRecentLedger', () => {
-  it('combines balance and recent ledger for an existing organization', async () => {
-    const ledger = [{ id: 'l1', delta: 50, reason: 'SIGNUP_BONUS' }];
-    const repo = {
-      getBalance: vi.fn().mockResolvedValue(42),
-      recentLedger: vi.fn().mockResolvedValue(ledger),
-    };
+function makeRepo(balance: number | null, dailyBurn = 0) {
+  return {
+    getBalance: vi.fn().mockResolvedValue(balance),
+    getStats: vi.fn().mockResolvedValue({ usedAllTime: 10, usedThisWeek: 2, dailyBurn, refunded: 1 }),
+    recentTransactions: vi.fn().mockResolvedValue([]),
+  };
+}
+
+describe('CreditsService.getSummary', () => {
+  it('estimates days left from the 14-day burn rate', async () => {
+    const repo = makeRepo(140, 10);
     const service = new CreditsService(repo as unknown as CreditsRepository);
-
-    const result = await service.getBalanceWithRecentLedger('org_1');
-
-    expect(result).toEqual({ balance: 42, recentLedger: ledger });
-    expect(repo.getBalance).toHaveBeenCalledWith('org_1');
-    expect(repo.recentLedger).toHaveBeenCalledWith('org_1');
+    await expect(service.getSummary('u1')).resolves.toMatchObject({ balance: 140, daysLeft: 14, usedAllTime: 10 });
   });
 
-  it('throws NotFoundError without querying the ledger when the organization does not exist', async () => {
-    const repo = { getBalance: vi.fn().mockResolvedValue(null), recentLedger: vi.fn() };
-    const service = new CreditsService(repo as unknown as CreditsRepository);
+  it('reports no estimate when nothing has been spent recently', async () => {
+    const service = new CreditsService(makeRepo(140, 0) as unknown as CreditsRepository);
+    await expect(service.getSummary('u1')).resolves.toMatchObject({ daysLeft: null });
+  });
 
-    await expect(service.getBalanceWithRecentLedger('missing')).rejects.toThrow(NotFoundError);
-    expect(repo.recentLedger).not.toHaveBeenCalled();
+  it('throws NotFoundError for an unknown user without reading stats', async () => {
+    const repo = makeRepo(null);
+    const service = new CreditsService(repo as unknown as CreditsRepository);
+    await expect(service.getSummary('missing')).rejects.toBeInstanceOf(NotFoundError);
+    expect(repo.getStats).not.toHaveBeenCalled();
   });
 });

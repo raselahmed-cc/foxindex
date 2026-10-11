@@ -1,18 +1,17 @@
 import { type CanActivate, type ExecutionContext, Inject, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { Role } from '@foxindex/types';
+import { UserRole } from '@foxindex/types';
 import { AuthorizationError } from '../errors/app-error';
 import { ROLES_KEY } from '../decorators/roles.decorator';
-import type { TenantContextRequest } from './tenant-context.guard';
+import type { AuthenticatedRequest } from './auth.guard';
 
-/** Must run after TenantContextGuard (needs request.tenant.role). No @Roles() = any member allowed. */
+/** Must run after AuthGuard (needs request.user.role). No @Roles() = any authenticated user allowed. */
 @Injectable()
 export class RolesGuard implements CanActivate {
-  // Explicit @Inject(ClassName) — see organizations.controller.ts.
   constructor(@Inject(Reflector) private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<Role[] | undefined>(ROLES_KEY, [
+    const requiredRoles = this.reflector.getAllAndOverride<UserRole[] | undefined>(ROLES_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
@@ -20,8 +19,9 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest<TenantContextRequest>();
-    if (!requiredRoles.includes(request.tenant.role)) {
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const role = request.user.role ?? UserRole.CLIENT;
+    if (!requiredRoles.includes(role)) {
       throw new AuthorizationError();
     }
     return true;

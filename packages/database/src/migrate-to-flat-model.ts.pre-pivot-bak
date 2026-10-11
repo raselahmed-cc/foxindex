@@ -1,0 +1,143 @@
+import { resolve } from 'node:path';
+import { config } from 'dotenv';
+import { sql } from 'drizzle-orm';
+import { createDbClient } from './client';
+
+config({ path: resolve(__dirname, '../../../.env'), quiet: true });
+
+/**
+ * One-off backfill for docs/adr/0013's flatten (organizations/domains ->
+ * user-owned projects) — NOT part of the normal migration chain. Run once,
+ * between applying migrations 0002 (adds the new nullable columns) and 0003
+ * (makes them NOT NULL and drops the old tables/columns): 0003 will fail if
+ * this hasn't populated every row first.
+ *
+ * Every UPDATE is guarded with `WHERE ... IS NULL`, so this is safe to run
+ * more than once (e.g. after fixing a bug in an earlier attempt) without
+ * double-applying anything.
+ *
+ * Relies on a fact confirmed by direct query against the real dev DB before
+ * writing this: every organization has exactly one member (that member is
+ * always OWNER) and exactly one project. That 1:1:1 shape is what makes
+ * "which user owns this project" and "which project does this org-wide API
+ * key belong to" both unambiguous — a codebase with real multi-member orgs
+ * or multi-project orgs would need a real decision here, not this script.
+ */
+async function main() {
+  const connectionString =
+    process.env.DATABASE_URL ?? 'postgres://foxindex:foxindex@localhost:5432/foxindex';
+  const { db, pool } = createDbClient({ connectionString });
+
+  try {
+    const projectOwners = await db.execute(sql`
+      UPDATE projects
+      SET user_id = om.user_id
+      FROM organization_members om
+      WHERE om.organization_id = projects.organization_id
+        AND om.role = 'OWNER'
+        AND projects.user_id IS NULL
+    `);
+    console.log(`projects.user_id backfilled: ${projectOwners.rowCount ?? 0}`);
+
+    // First-created domain's key, if any; otherwise a freshly generated one
+    // (32 hex chars, matching generateIndexNowKey()'s own shape).
+    const projectKeysFromDomain = await db.execute(sql`
+      UPDATE projects
+      SET indexnow_key = d.indexnow_key
+      FROM (
+        SELECT DISTINCT ON (project_id) project_id, indexnow_key
+        FROM domains
+        ORDER BY project_id, created_at ASC
+      ) d
+      WHERE d.project_id = projects.id
+        AND projects.indexnow_key IS NULL
+    `);
+    console.log(`projects.indexnow_key backfilled from an existing domain: ${projectKeysFromDomain.rowCount ?? 0}`);
+
+    // gen_random_uuid() is core Postgres (no pgcrypto extension needed,
+    // unlike gen_random_bytes) — stripping its dashes gives 32 hex chars,
+    // the same shape as generateIndexNowKey()'s own output.
+    const projectKeysGenerated = await db.execute(sql`
+      UPDATE projects
+      SET indexnow_key = replace(gen_random_uuid()::text, '-', '')
+      WHERE indexnow_key IS NULL
+    `);
+    console.log(`projects.indexnow_key freshly generated (no domain existed): ${projectKeysGenerated.rowCount ?? 0}`);
+
+    const submissionOwners = await db.execute(sql`
+      UPDATE url_submissions
+      SET user_id = projects.user_id
+      FROM projects
+      WHERE projects.id = url_submissions.project_id
+        AND url_submissions.user_id IS NULL
+    `);
+    console.log(`url_submissions.user_id backfilled: ${submissionOwners.rowCount ?? 0}`);
+
+    const creditLedgerOwners = await db.execute(sql`
+      UPDATE credit_ledger
+      SET user_id = om.user_id
+      FROM organization_members om
+      WHERE om.organization_id = credit_ledger.organization_id
+        AND om.role = 'OWNER'
+        AND credit_ledger.user_id IS NULL
+    `);
+    console.log(`credit_ledger.user_id backfilled: ${creditLedgerOwners.rowCount ?? 0}`);
+
+    const auditLogOwners = await db.execute(sql`
+      UPDATE audit_logs
+      SET user_id = om.user_id
+      FROM organization_members om
+      WHERE om.organization_id = audit_logs.organization_id
+        AND om.role = 'OWNER'
+        AND audit_logs.user_id IS NULL
+    `);
+    console.log(`audit_logs.user_id backfilled: ${auditLogOwners.rowCount ?? 0}`);
+
+    // Sum every organization a user OWNs into their new personal balance —
+    // in the confirmed 1-org-per-owner-in-practice shape this is just "copy
+    // the one number over," but SUM handles a user who somehow owned more
+    // than one org too, rather than silently picking one arbitrarily.
+    const userCreditBalances = await db.execute(sql`
+      UPDATE "user"
+      SET credit_balance = COALESCE("user".credit_balance, 0) + owned.total
+      FROM (
+        SELECT om.user_id, SUM(o.credit_balance)::int AS total
+        FROM organizations o
+        JOIN organization_members om ON om.organization_id = o.id AND om.role = 'OWNER'
+        GROUP BY om.user_id
+      ) owned
+      WHERE owned.user_id = "user".id
+    `);
+    console.log(`user.credit_balance summed from owned organizations: ${userCreditBalances.rowCount ?? 0}`);
+
+    // The 2 org-wide (project_id IS NULL) API keys in the real dev DB both
+    // belong to an org with exactly one project — safe to point them at it.
+    // A codebase where that's ever ambiguous would need this to reject
+    // instead of guessing; it can't happen here (confirmed by direct query).
+    const apiKeyProjects = await db.execute(sql`
+      UPDATE api_keys
+      SET project_id = p.id
+      FROM projects p
+      WHERE p.organization_id = api_keys.organization_id
+        AND api_keys.project_id IS NULL
+    `);
+    console.log(`api_keys.project_id backfilled: ${apiKeyProjects.rowCount ?? 0}`);
+
+    const stillMissing = await db.execute(sql`
+      SELECT
+        (SELECT count(*) FROM projects WHERE user_id IS NULL OR indexnow_key IS NULL) AS projects_missing,
+        (SELECT count(*) FROM url_submissions WHERE user_id IS NULL) AS submissions_missing,
+        (SELECT count(*) FROM credit_ledger WHERE user_id IS NULL) AS credit_ledger_missing,
+        (SELECT count(*) FROM audit_logs WHERE user_id IS NULL) AS audit_logs_missing,
+        (SELECT count(*) FROM api_keys WHERE project_id IS NULL) AS api_keys_missing
+    `);
+    console.log('Remaining NULLs (must all be 0 before running migration 0003):', stillMissing.rows[0]);
+  } finally {
+    await pool.end();
+  }
+}
+
+main().catch((error) => {
+  console.error('Backfill failed:', error);
+  process.exit(1);
+});

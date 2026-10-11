@@ -1,39 +1,31 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { Database } from '@foxindex/database';
+import type { Database, Transaction } from '@foxindex/database';
 import { auditLogs } from '@foxindex/database';
 import { DATABASE } from '../../database/database.module';
 
 export interface RecordAuditLogInput {
-  organizationId: string;
-  actorUserId?: string;
-  actorApiKeyId?: string;
+  actorId?: string;
   action: string;
-  resourceType: string;
-  resourceId?: string;
+  targetType: string;
+  targetId?: string;
   metadata?: Record<string, unknown>;
-  ipAddress?: string;
+  ip?: string;
 }
 
-/**
- * Write-path only (constitution §40) — injected into other modules' services at
- * the point an auditable action happens (organization.created, domain.verified,
- * url.submitted, api_key.created/revoked, ...). No read API/controller yet:
- * nothing consumes one, so building it now would be dead code.
- */
+/** Write-path only — nothing reads audit_logs yet (see docs/future-modules.md's audit entry). */
 @Injectable()
 export class AuditLogService {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
-  async record(input: RecordAuditLogInput): Promise<void> {
-    await this.db.insert(auditLogs).values({
-      organizationId: input.organizationId,
-      actorUserId: input.actorUserId,
-      actorApiKeyId: input.actorApiKeyId,
+  async record(input: RecordAuditLogInput, tx?: Transaction): Promise<void> {
+    const executor = tx ?? this.db;
+    await executor.insert(auditLogs).values({
+      actorId: input.actorId,
       action: input.action,
-      resourceType: input.resourceType,
-      resourceId: input.resourceId,
+      targetType: input.targetType,
+      targetId: input.targetId,
       metadata: input.metadata,
-      ipAddress: input.ipAddress,
+      ip: input.ip,
     });
   }
 }

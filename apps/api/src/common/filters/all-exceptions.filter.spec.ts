@@ -12,6 +12,7 @@ function makeHost(requestId = 'req_1') {
   const status = vi.fn(() => ({ json }));
   const request = { requestId, url: '/test', method: 'GET' } as RequestWithId;
   const host = {
+    getType: () => 'http',
     switchToHttp: () => ({
       getResponse: () => ({ status }),
       getRequest: () => request,

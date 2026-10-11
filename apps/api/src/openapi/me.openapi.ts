@@ -1,11 +1,13 @@
 import { z } from 'zod';
+import { UserRole, UserStatus } from '@foxindex/types';
 import { openApiRegistry } from './registry';
 
-const sessionUserSchema = z.object({
-  id: z.string(),
-  email: z.string(),
+const publicUserSchema = z.object({
+  id: z.uuid(),
   name: z.string(),
-  emailVerified: z.boolean(),
+  email: z.string(),
+  role: z.enum(UserRole),
+  status: z.enum(UserStatus),
 });
 
 openApiRegistry.registerPath({
@@ -13,11 +15,11 @@ openApiRegistry.registerPath({
   path: '/me',
   summary: 'Current authenticated user',
   tags: ['Auth'],
-  security: [{ session: [] }],
+  security: [{ bearer: [] }],
   responses: {
     200: {
       description: 'The signed-in user',
-      content: { 'application/json': { schema: z.object({ user: sessionUserSchema }) } },
+      content: { 'application/json': { schema: publicUserSchema } },
     },
     401: { description: 'Not authenticated' },
   },

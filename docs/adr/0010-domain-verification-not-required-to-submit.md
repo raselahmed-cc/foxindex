@@ -1,5 +1,12 @@
 # 0010: Domain verification is no longer required before submitting URLs
 
+> **The domain/verification model this ADR discusses is superseded by
+> [ADR 0013](./0013-flatten-to-project-single-indexnow-key.md)** — there is
+> no `domains` table anymore, so there's nothing left to "not require
+> verification of." The one part of this ADR that's still exactly true:
+> IndexNow's own key-file check remains the real authorization boundary,
+> now checked against a project's single key instead of a per-domain one.
+
 ## Status
 
 Accepted — supersedes the submission-gating half of the original design

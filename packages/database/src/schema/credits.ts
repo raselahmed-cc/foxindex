@@ -1,25 +1,28 @@
-import { index, integer, jsonb, pgTable, timestamp, uuid } from 'drizzle-orm/pg-core';
-import { creditLedgerReasonEnum } from './enums';
-import { organizations } from './organizations';
+import { index, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { creditTransactionTypeEnum } from './enums';
+import { users } from './users';
 
 /**
- * Append-only, same style as domain_verifications/submission_attempts —
- * organizations.credit_balance is the fast-path cache, this is the audit
- * trail it's derived from. See docs/adr/0011 for why this exists but isn't
- * "billing" (no plans/subscriptions/Stripe — those stay in future-schema.md).
+ * Append-only. Balance = SUM(amount) WHERE user_id = ... — never a column
+ * that gets edited directly (see CLAUDE.md "Credits"). Cached in Redis
+ * `balance:<userId>`, invalidated on every insert.
  */
-export const creditLedger = pgTable(
-  'credit_ledger',
+export const creditTransactions = pgTable(
+  'credit_transactions',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    organizationId: uuid('organization_id')
+    userId: uuid('user_id')
       .notNull()
-      .references(() => organizations.id, { onDelete: 'cascade' }),
-    /** Positive for grants (signup bonus, manual grant), negative for deductions. */
-    delta: integer('delta').notNull(),
-    reason: creditLedgerReasonEnum('reason').notNull(),
-    metadata: jsonb('metadata'),
+      .references(() => users.id),
+    amount: integer('amount').notNull(),
+    type: creditTransactionTypeEnum('type').notNull(),
+    performedBy: uuid('performed_by').references(() => users.id),
+    referenceId: uuid('reference_id'),
+    note: text('note'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('credit_ledger_organization_id_created_at_idx').on(table.organizationId, table.createdAt)],
+  (table) => [
+    index('credit_transactions_user_id_idx').on(table.userId),
+    index('credit_transactions_reference_id_idx').on(table.referenceId),
+  ],
 );

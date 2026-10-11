@@ -1,14 +1,16 @@
 import { Module } from '@nestjs/common';
-import { MeController } from './me.controller';
+import { CreditsModule } from '../credits/credits.module';
+import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service';
+import { AccountService } from './account.service';
+import { AuthAccountController, MeController } from './me.controller';
+import { mailerProvider } from './mailer.provider';
 
-/**
- * Better Auth's own routes (sign-up/in/out, verify-email, reset-password) are
- * mounted directly on the raw Express app in main.ts, not through this module —
- * they need the unparsed request body, which conflicts with going through
- * Nest's router. This module only owns /me, which composes the session via
- * AuthGuard.
- */
+/** AuditLogService comes from the @Global() AuditLogsModule already imported in AppModule — no need to import it again here. */
 @Module({
-  controllers: [MeController],
+  imports: [CreditsModule],
+  controllers: [AuthController, AuthAccountController, MeController],
+  providers: [AuthService, AccountService, mailerProvider],
+  exports: [AuthService],
 })
 export class AuthModule {}

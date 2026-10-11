@@ -13,8 +13,8 @@ env:
   # what unit-test actually talks to.
   DATABASE_URL: postgres://foxindex:foxindex@localhost:5432/foxindex
   REDIS_URL: redis://localhost:6379
-  BETTER_AUTH_SECRET: ci-only-not-a-real-secret-0123456789
-  BETTER_AUTH_URL: http://localhost:3001
+  JWT_SECRET: ci-only-not-a-real-secret-0123456789
+  ENCRYPTION_KEY: ci-only-encryption-key-0123456789
   CORS_ORIGIN: http://localhost:3000
   API_PORT: '3001'
   NODE_ENV: test
@@ -61,6 +61,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
+      # The worker's batch-processor tests run against this Postgres, so it needs the schema.
+      - run: pnpm db:migrate
       - run: pnpm turbo run test
 
   build:

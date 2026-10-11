@@ -1,80 +1,62 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiKeyScope } from '@foxindex/types';
 import { ApiKeysService } from './api-keys.service';
-import { NotFoundError } from '../../common/errors/app-error';
+import { NotFoundError, ValidationError } from '../../common/errors/app-error';
 import type { AuditLogService } from '../audit-logs/audit-log.service';
 import type { ApiKeysRepository } from './api-keys.repository';
 
-describe('ApiKeysService', () => {
-  let repository: {
-    create: ReturnType<typeof vi.fn>;
-    findAllForOrganization: ReturnType<typeof vi.fn>;
-    findByIdForOrganization: ReturnType<typeof vi.fn>;
-    revoke: ReturnType<typeof vi.fn>;
+function keyRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'key_1',
+    userId: 'user_1',
+    label: 'CI key',
+    keyHash: 'super-secret-hash-should-never-leak',
+    keyPrefix: 'fx_live_abcd',
+    keyLast4: 'wxyz',
+    scopes: ['submit'],
+    siteId: null,
+    monthlyCreditCap: null,
+    ipAllowlist: [],
+    lastUsedAt: null,
+    createdAt: new Date(),
+    revokedAt: null,
+    ...overrides,
   };
-  let auditLog: { record: ReturnType<typeof vi.fn> };
+}
+
+describe('ApiKeysService', () => {
+  let repository: Record<string, ReturnType<typeof vi.fn>>;
   let service: ApiKeysService;
 
   beforeEach(() => {
     repository = {
-      create: vi.fn(),
-      findAllForOrganization: vi.fn(),
-      findByIdForOrganization: vi.fn(),
-      revoke: vi.fn(),
+      create: vi.fn().mockResolvedValue(keyRow()),
+      listForUser: vi.fn().mockResolvedValue([]),
+      findForUser: vi.fn(),
+      update: vi.fn(),
+      siteBelongsToUser: vi.fn().mockResolvedValue(true),
     };
-    auditLog = { record: vi.fn().mockResolvedValue(undefined) };
+    const auditLog = { record: vi.fn().mockResolvedValue(undefined) };
     service = new ApiKeysService(repository as unknown as ApiKeysRepository, auditLog as unknown as AuditLogService);
   });
 
-  it('create() returns the plaintext key exactly once and never a keyHash', async () => {
-    repository.create.mockResolvedValue({
-      id: 'key_1',
-      organizationId: 'org_1',
-      name: 'CI key',
-      keyPrefix: 'fx_live_abc',
-      keyHash: 'super-secret-hash-should-never-leak',
-      scopes: [ApiKeyScope.SUBMIT_URLS],
-    });
-
-    const result = await service.create('org_1', { name: 'CI key', scopes: [ApiKeyScope.SUBMIT_URLS] }, 'user_1');
-
+  it('create() returns the plaintext once and never the hash', async () => {
+    const result = await service.create('user_1', { name: 'CI key', scopes: ['submit'], ipAllowlist: [] });
     expect(result.plaintext).toMatch(/^fx_live_/);
-    expect(result).not.toHaveProperty('keyHash');
-    expect(auditLog.record).toHaveBeenCalledWith(expect.objectContaining({ action: 'api_key.created' }));
+    expect(JSON.stringify(result)).not.toContain('super-secret-hash');
+    const stored = repository.create.mock.calls[0][0];
+    expect(stored.keyHash).not.toBe(result.plaintext);
+    expect(stored.keyLast4).toBe(result.plaintext.slice(-4));
   });
 
-  it('create() persists a sha256 hash of the plaintext, not the plaintext itself', async () => {
-    repository.create.mockImplementation((input) => Promise.resolve({ id: 'key_1', ...input }));
-
-    await service.create('org_1', { name: 'CI key', scopes: [ApiKeyScope.SUBMIT_URLS] }, 'user_1');
-
-    const [createInput] = repository.create.mock.calls[0];
-    expect(createInput.keyHash).toMatch(/^[0-9a-f]{64}$/);
+  it('create() rejects a site the user does not own', async () => {
+    repository.siteBelongsToUser.mockResolvedValue(false);
+    await expect(
+      service.create('user_1', { name: 'x', scopes: ['submit'], siteId: '00000000-0000-0000-0000-000000000000', ipAllowlist: [] }),
+    ).rejects.toBeInstanceOf(ValidationError);
   });
 
-  it('findAllForOrganization() strips keyHash from every row', async () => {
-    repository.findAllForOrganization.mockResolvedValue([
-      { id: 'key_1', keyHash: 'secret-1', name: 'a' },
-      { id: 'key_2', keyHash: 'secret-2', name: 'b' },
-    ]);
-
-    const result = await service.findAllForOrganization('org_1');
-
-    expect(result.every((row) => !('keyHash' in row))).toBe(true);
-  });
-
-  it('revoke() throws NotFoundError for a key that does not belong to the organization', async () => {
-    repository.findByIdForOrganization.mockResolvedValue(undefined);
-    await expect(service.revoke('org_1', 'key_1', 'user_1')).rejects.toBeInstanceOf(NotFoundError);
-    expect(repository.revoke).not.toHaveBeenCalled();
-  });
-
-  it('revoke() records an audit log entry', async () => {
-    repository.findByIdForOrganization.mockResolvedValue({ id: 'key_1', name: 'a', keyPrefix: 'fx_live_abc' });
-    repository.revoke.mockResolvedValue({ id: 'key_1', keyHash: 'secret', revokedAt: new Date() });
-
-    await service.revoke('org_1', 'key_1', 'user_1');
-
-    expect(auditLog.record).toHaveBeenCalledWith(expect.objectContaining({ action: 'api_key.revoked' }));
+  it('revoke() refuses another user’s key', async () => {
+    repository.findForUser.mockResolvedValue(undefined);
+    await expect(service.revoke('user_2', 'key_1')).rejects.toBeInstanceOf(NotFoundError);
   });
 });

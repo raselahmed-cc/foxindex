@@ -1,0 +1,35 @@
+{
+	email {$ACME_EMAIL}
+}
+
+# Automatic HTTPS for the app domain. One origin serves both the web app and
+# the API, so the browser never makes cross-origin calls.
+{$DOMAIN} {
+	encode zstd gzip
+
+	# API + websockets (socket.io for live chat, notifications, ticket presence).
+	@api path /api/* /socket.io/*
+	handle @api {
+		# Caddy sets X-Forwarded-For from the real client (and ignores spoofed values).
+		reverse_proxy api:3001
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+
+	# Uploads and batch submits can be a few MB.
+	request_body {
+		max_size 16MB
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
+
+# Redirect www to the apex app domain if someone types it.
+www.{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
+}

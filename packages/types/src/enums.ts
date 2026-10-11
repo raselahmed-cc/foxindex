@@ -1,28 +1,24 @@
 /**
- * Full role set from the FoxIndex constitution. Phase 1 only actively enforces
- * OWNER/ADMIN/MANAGER-tier vs. member-tier checks via explicit per-route @Roles()
- * allow-lists — the remaining roles exist so org membership records and the schema
- * don't need to change shape when finer-grained authorization is added later.
+ * Global platform role (docs/adr/0014 — supersedes the old USER/ADMIN/
+ * SUPER_ADMIN model from docs/adr/0013). Values match the `user_role` pg
+ * enum exactly (see packages/database/src/schema/enums.ts) so no mapping
+ * layer is needed between the DB row and this type. CLIENT is the default
+ * for every self-registered account; MANAGER is assigned a subset of
+ * clients; ADMIN/SUPERADMIN are platform operators — see CLAUDE.md "Roles".
  */
-export enum Role {
-  OWNER = 'OWNER',
-  ADMIN = 'ADMIN',
-  MANAGER = 'MANAGER',
-  SEO_MANAGER = 'SEO_MANAGER',
-  DEVELOPER = 'DEVELOPER',
-  ANALYST = 'ANALYST',
-  VIEWER = 'VIEWER',
-  BILLING = 'BILLING',
+export enum UserRole {
+  CLIENT = 'client',
+  MANAGER = 'manager',
+  ADMIN = 'admin',
+  SUPERADMIN = 'superadmin',
 }
 
-export enum DomainVerificationMethod {
-  INDEXNOW_KEY_FILE = 'INDEXNOW_KEY_FILE',
-}
-
-export enum DomainVerificationStatus {
-  PENDING = 'PENDING',
-  VERIFIED = 'VERIFIED',
-  FAILED = 'FAILED',
+/** Account lifecycle state (docs/adr/0014) — matches the `user_status` pg enum. */
+export enum UserStatus {
+  PENDING_EMAIL = 'pending_email',
+  PENDING_APPROVAL = 'pending_approval',
+  ACTIVE = 'active',
+  SUSPENDED = 'suspended',
 }
 
 /**
@@ -56,7 +52,6 @@ export enum SubmissionProvider {
 
 export enum SubmissionFailureReason {
   INVALID_URL = 'INVALID_URL',
-  DOMAIN_NOT_VERIFIED = 'DOMAIN_NOT_VERIFIED',
   INSUFFICIENT_CREDITS = 'INSUFFICIENT_CREDITS',
   PROVIDER_ERROR = 'PROVIDER_ERROR',
   RATE_LIMITED = 'RATE_LIMITED',

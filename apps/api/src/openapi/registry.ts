@@ -9,11 +9,11 @@ import { OpenAPIRegistry } from '@asteasolutions/zod-to-openapi';
  */
 export const openApiRegistry = new OpenAPIRegistry();
 
-openApiRegistry.registerComponent('securitySchemes', 'session', {
-  type: 'apiKey',
-  in: 'cookie',
-  name: 'better-auth.session_token',
-  description: 'Better Auth session cookie, set on sign-in.',
+openApiRegistry.registerComponent('securitySchemes', 'bearer', {
+  type: 'http',
+  scheme: 'bearer',
+  bearerFormat: 'JWT',
+  description: 'Short-lived JWT access token returned by POST /auth/login (docs/adr/0014).',
 });
 
 openApiRegistry.registerComponent('securitySchemes', 'apiKey', {

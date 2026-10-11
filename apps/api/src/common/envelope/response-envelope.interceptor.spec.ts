@@ -7,6 +7,7 @@ import type { RequestWithId } from '../middleware/request-id.middleware';
 function makeContext(requestId: string): ExecutionContext {
   const request = { requestId } as RequestWithId;
   return {
+    getType: () => 'http',
     switchToHttp: () => ({ getRequest: () => request }),
   } as unknown as ExecutionContext;
 }
@@ -45,5 +46,15 @@ describe('ResponseEnvelopeInterceptor', () => {
     );
 
     expect(result.data).toEqual([1, 2, 3]);
+  });
+});
+
+describe('ResponseEnvelopeInterceptor (websocket)', () => {
+  it('passes websocket acks through unwrapped', async () => {
+    const { of, lastValueFrom } = await import('rxjs');
+    const { ResponseEnvelopeInterceptor } = await import('./response-envelope.interceptor');
+    const context = { getType: () => 'ws' } as unknown as import('@nestjs/common').ExecutionContext;
+    const result = await lastValueFrom(new ResponseEnvelopeInterceptor().intercept(context, { handle: () => of({ ok: true }) }));
+    expect(result).toEqual({ ok: true });
   });
 });

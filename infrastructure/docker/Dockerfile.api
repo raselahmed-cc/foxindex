@@ -1,22 +1,25 @@
-# Build context is the repo root (see docker-compose.dev.yml's `context: ../..`)
-# — the whole workspace is needed since apps/api depends on several
-# packages/* via pnpm's workspace protocol.
+# API image. Build context is the repo root (`docker build -f infrastructure/docker/Dockerfile.api .`).
+# The same image runs migrations and the seed (see docker-compose.prod.yml's `migrate` service).
 FROM node:22-alpine AS build
 RUN corepack enable
 WORKDIR /app
 COPY . .
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter @foxindex/api... build
+RUN pnpm --filter @foxindex/api... build && pnpm --filter @foxindex/database build
+# Drop devDependencies from the tree that ships.
+RUN CI=true pnpm prune --prod
 
-# Runtime stage still carries the full node_modules tree (incl.
-# devDependencies) rather than a pruned deploy — correct and simple for
-# Phase 1; image-size optimization via `pnpm deploy`/`turbo prune` is a
-# documented future improvement (constitution §28: don't optimize before
-# there's a measured reason to).
 FROM node:22-alpine AS runtime
-RUN corepack enable
+RUN apk add --no-cache tini wget
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=build /app /app
+COPY --from=build --chown=node:node /app /app
+# Attachments live here — mount a persistent volume at /data/uploads.
+ENV UPLOAD_DIR=/data/uploads
+RUN mkdir -p /data/uploads && chown -R node:node /data
+USER node
 EXPOSE 3001
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=4 \
+  CMD wget -qO- http://127.0.0.1:3001/api/v1/health/ready >/dev/null || exit 1
+ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["node", "apps/api/dist/bootstrap.js"]

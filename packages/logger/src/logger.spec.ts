@@ -30,10 +30,10 @@ describe('logger', () => {
 
   it('withContext attaches fields to every subsequent log line', () => {
     const { logger, lines } = createCapturingLogger();
-    const scoped = withContext(logger, { organizationId: 'org_123', requestId: 'req_456' });
+    const scoped = withContext(logger, { userId: 'user_123', requestId: 'req_456' });
     scoped.info('did a thing');
     const parsed = JSON.parse(lines[0]);
-    expect(parsed.organizationId).toBe('org_123');
+    expect(parsed.userId).toBe('user_123');
     expect(parsed.requestId).toBe('req_456');
   });
 

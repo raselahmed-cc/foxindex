@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FoxIndex — page designs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A0D12; --bg2:#0F131A; --surface:#141922; --surface2:#1A2029;
+  --line:#222A36; --line2:#2C3644;
+  --text:#E8ECF2; --text2:#A6B0C0; --text3:#6C7789;
+  --accent:#6B8CFF; --accent2:#4A6DF0; --accent-soft:rgba(107,140,255,.14);
+  --ok:#35D0B5; --ok-soft:rgba(53,208,181,.14);
+  --warn:#F2B84B; --warn-soft:rgba(242,184,75,.14);
+  --bad:#F26B7A; --bad-soft:rgba(242,107,122,.14);
+  --font:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --r-sm:6px; --r:10px; --r-lg:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input,select,textarea{font:inherit;color:var(--text);background:var(--bg2);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;width:100%;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--mono);font-size:13px}
+h1,h2,h3{font-weight:600;letter-spacing:-.02em;line-height:1.15}
+h1{font-size:clamp(34px,5vw,58px);letter-spacing:-.03em}
+h2{font-size:clamp(24px,3vw,34px)}
+h3{font-size:17px}
+p{color:var(--text2)}
+.muted{color:var(--text3)}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+
+/* ---------- design switcher ---------- */
+.switcher{position:fixed;left:0;right:0;bottom:0;z-index:99;background:rgba(10,13,18,.92);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:8px 12px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.switcher button{white-space:nowrap;padding:6px 12px;border-radius:999px;border:1px solid var(--line);color:var(--text2);font-size:13px}
+.switcher button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.page{display:none;padding-bottom:70px;min-height:100vh}
+.page.on{display:block}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:var(--r-sm);font-weight:500;font-size:14px;border:1px solid transparent;transition:background .15s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
+.btn-ghost{border-color:var(--line2);color:var(--text)}.btn-ghost:hover{background:var(--surface2)}
+.btn-sm{padding:6px 11px;font-size:13px}
+.btn-danger{background:var(--bad-soft);color:var(--bad);border-color:transparent}
+.btn-ok{background:var(--ok-soft);color:var(--ok)}
+
+/* ---------- status pills ---------- */
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:500}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.pill.info{background:var(--accent-soft);color:var(--accent)}
+.pill.neutral{background:var(--surface2);color:var(--text2)}
+
+/* ---------- cards / tables ---------- */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.card-h{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line)}
+.card-h h3{font-size:15px}
+.card-b{padding:18px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-weight:500;color:var(--text3);font-size:12.5px;padding:10px 18px;border-bottom:1px solid var(--line)}
+td{padding:12px 18px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tr:hover td{background:rgba(255,255,255,.015)}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;color:var(--text2);margin-bottom:6px}
+.field .hint{font-size:12px;color:var(--text3);margin-top:5px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:640px){.row2{grid-template-columns:1fr}}
+.stat{padding:18px}
+.stat .n{font-size:30px;font-weight:600;letter-spacing:-.03em;line-height:1}
+.stat .l{font-size:13px;color:var(--text3);margin-top:8px}
+.stat .d{font-size:12px;margin-top:6px}
+.avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#9B6BFF);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;flex-shrink:0}
+.avatar.sm{width:24px;height:24px;font-size:10px}
+
+/* ---------- landing ---------- */
+.nav{display:flex;align-items:center;justify-content:space-between;height:64px}
+.logo{display:flex;align-items:center;gap:9px;font-weight:600;font-size:16px;letter-spacing:-.01em}
+.logo i{flex-shrink:0;width:22px;height:22px;border-radius:6px;background:var(--accent);display:inline-block;position:relative}
+.logo i::after{content:"";position:absolute;inset:6px;border:2px solid #fff;border-radius:50%;border-right-color:transparent}
+.nav-links{display:flex;gap:26px;font-size:14px;color:var(--text2)}
+.nav-links a:hover{color:var(--text)}
+@media(max-width:800px){.nav-links{display:none}}
+.hero{padding:80px 0 60px;display:grid;grid-template-columns:1.05fr 1fr;gap:56px;align-items:center}
+@media(max-width:900px){.hero{grid-template-columns:1fr;padding:50px 0 40px}}
+.hero p.lead{font-size:18px;margin:22px 0 30px;max-width:48ch}
+.hero .cta{display:flex;gap:12px;flex-wrap:wrap}
+.hero .note{font-size:13px;color:var(--text3);margin-top:16px}
+
+/* live feed — the hero object */
+.feed{background:var(--bg2);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;box-shadow:0 30px 80px -30px rgba(0,0,0,.8)}
+.feed-top{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);font-size:13px;color:var(--text2)}
+.feed-top .live{display:flex;align-items:center;gap:7px;color:var(--ok)}
+.feed-top .live::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 4px var(--ok-soft);animation:pulse 2s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 0 var(--ok-soft)}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.feed-row{display:grid;grid-template-columns:1fr auto auto;gap:14px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12.5px}
+.feed-row:last-child{border-bottom:0}
+.feed-row .u{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.feed-row .t{color:var(--text3);font-size:12px}
+.feed-sum{padding:12px 16px;background:var(--surface);display:flex;gap:22px;font-size:13px;color:var(--text2)}
+.feed-sum b{color:var(--text);font-weight:600}
+
+.engines{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:26px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:14px;color:var(--text2)}
+.engines span{padding:6px 12px;border:1px solid var(--line);border-radius:999px}
+
+.section{padding:80px 0}
+.section h2{max-width:26ch}
+.section .sub{margin-top:12px;max-width:56ch;font-size:16px}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;margin-top:40px}
+@media(max-width:800px){.steps{grid-template-columns:1fr}}
+.step{background:var(--bg2);padding:28px}
+.step .k{font-family:var(--mono);color:var(--accent);font-size:13px;margin-bottom:14px}
+.step h3{margin-bottom:8px}
+.step p{font-size:14px}
+
+.pricing{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:40px}
+@media(max-width:900px){.pricing{grid-template-columns:1fr}}
+.plan{padding:26px;border-radius:var(--r-lg)}
+.plan.hot{border-color:var(--accent);background:linear-gradient(180deg,rgba(107,140,255,.08),transparent)}
+.plan .price{font-size:40px;font-weight:600;letter-spacing:-.03em;margin:14px 0 4px}
+.plan .price small{font-size:14px;color:var(--text3);font-weight:400;letter-spacing:0}
+.plan ul{list-style:none;margin:20px 0 24px;display:grid;gap:9px;font-size:14px;color:var(--text2)}
+.plan li::before{content:"✓";color:var(--ok);margin-right:9px}
+
+.faq{margin-top:36px;border-top:1px solid var(--line)}
+.faq details{border-bottom:1px solid var(--line)}
+.faq summary{padding:18px 0;cursor:pointer;font-weight:500;list-style:none;display:flex;justify-content:space-between}
+.faq summary::after{content:"+";color:var(--text3)}
+.faq details[open] summary::after{content:"–"}
+.faq details p{padding:0 0 18px;max-width:70ch;font-size:14px}
+
+.final{padding:70px 0;text-align:center;border-top:1px solid var(--line)}
+.final p{margin:12px auto 26px;max-width:48ch}
+footer{padding:36px 0;border-top:1px solid var(--line);display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--text3)}
+footer .links{display:flex;gap:20px}
+
+/* ---------- auth ---------- */
+.auth{min-height:100vh;display:grid;grid-template-columns:1fr 1fr}
+@media(max-width:900px){.auth{grid-template-columns:1fr}.auth-side{display:none}}
+.auth-side{background:var(--bg2);border-right:1px solid var(--line);padding:40px;display:flex;flex-direction:column;justify-content:space-between}
+.auth-side .quote{max-width:38ch;font-size:19px;line-height:1.45;color:var(--text)}
+.auth-side .who{margin-top:16px;font-size:13px;color:var(--text3)}
+.auth-main{display:flex;align-items:center;justify-content:center;padding:40px 24px}
+.auth-box{width:100%;max-width:440px}
+.auth-box h2{font-size:26px;margin:24px 0 6px}
+.auth-box>p{margin-bottom:26px}
+.auth-box .foot{margin-top:20px;font-size:14px;text-align:center}
+.auth-box .foot a{color:var(--accent)}
+.steps-bar{display:flex;gap:6px;margin:18px 0 26px}
+.steps-bar i{flex:1;height:3px;border-radius:2px;background:var(--line2)}
+.steps-bar i.done{background:var(--accent)}
+.code{display:flex;gap:8px}
+.code input{text-align:center;font-family:var(--mono);font-size:22px;padding:12px 0}
+.pending{text-align:center}
+.pending .ico{width:64px;height:64px;border-radius:50%;background:var(--warn-soft);color:var(--warn);display:inline-flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:20px}
+.mgr-card{display:flex;align-items:center;gap:14px;text-align:left;margin:26px 0}
+.mgr-card .m{flex:1}.mgr-card .m b{display:block}
+.mgr-card .m span{font-size:13px;color:var(--text3)}
+
+/* ---------- app shell ---------- */
+.shell{display:grid;grid-template-columns:232px 1fr;min-height:100vh}
+@media(max-width:900px){.shell{grid-template-columns:1fr}.side{display:none}}
+.side{background:var(--bg2);border-right:1px solid var(--line);padding:18px 14px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.side .logo{padding:6px 8px 20px}
+.side nav a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--r-sm);font-size:14px;color:var(--text2);margin-bottom:2px}
+.side nav a:hover{background:var(--surface);color:var(--text)}
+.side nav a.on{background:var(--accent-soft);color:var(--text)}
+.side nav a .ic{width:16px;height:16px;border-radius:4px;border:1.5px solid currentColor;opacity:.7}
+.side nav .grp{font-size:11.5px;color:var(--text3);padding:16px 10px 6px}
+.side .credit{margin-top:auto;padding:14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.side .credit .n{font-size:22px;font-weight:600;letter-spacing:-.02em}
+.side .credit .l{font-size:12px;color:var(--text3)}
+.side .me{display:flex;align-items:center;gap:10px;padding:14px 8px 0;font-size:13px}
+.side .me span{color:var(--text3);font-size:12px;display:block}
+.main{padding:0 28px 40px;min-width:0}
+.topbar{display:flex;align-items:center;justify-content:space-between;height:60px;border-bottom:1px solid var(--line);margin-bottom:26px;gap:14px}
+.topbar h2{font-size:18px}
+.topbar .crumb{font-size:13px;color:var(--text3)}
+.topbar .right{display:flex;gap:10px;align-items:center}
+.search{position:relative;width:260px}
+.search input{padding-left:32px;background:var(--surface)}
+.search::before{content:"";position:absolute;left:11px;top:12px;width:12px;height:12px;border:1.5px solid var(--text3);border-radius:50%}
+@media(max-width:700px){.search{display:none}}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+@media(max-width:1000px){.grid4{grid-template-columns:repeat(2,1fr)}}
+.grid2{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-bottom:22px}
+@media(max-width:1000px){.grid2{grid-template-columns:1fr}}
+.bars{display:flex;align-items:flex-end;gap:6px;height:150px;padding:18px 18px 6px}
+.bars i{flex:1;background:var(--accent-soft);border-radius:3px 3px 0 0;position:relative}
+.bars i b{position:absolute;left:0;right:0;bottom:0;background:var(--accent);border-radius:3px 3px 0 0}
+.bars-x{display:flex;justify-content:space-between;padding:0 18px 14px;font-size:11px;color:var(--text3)}
+.chan{display:grid;gap:12px}
+.chan .r{display:grid;grid-template-columns:90px 1fr 42px;gap:12px;align-items:center;font-size:13px}
+.chan .b{height:8px;background:var(--surface2);border-radius:4px;overflow:hidden}
+.chan .b i{display:block;height:100%;background:var(--accent);border-radius:4px}
+.chan .b i.ok{background:var(--ok)}
+.chan .v{text-align:right;color:var(--text2)}
+.url-cell{font-family:var(--mono);font-size:12.5px;max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mobile-tabs{display:none;gap:6px;margin-bottom:18px;overflow-x:auto}
+.mobile-tabs a{white-space:nowrap;padding:7px 12px;border:1px solid var(--line);border-radius:999px;font-size:13px;color:var(--text2)}
+.mobile-tabs a.on{background:var(--accent-soft);color:var(--text);border-color:transparent}
+@media(max-width:900px){.mobile-tabs{display:flex}}
+
+/* submit page */
+.submit{display:grid;grid-template-columns:1.5fr 1fr;gap:16px}
+@media(max-width:900px){.submit{grid-template-columns:1fr}}
+.submit textarea{min-height:260px;font-family:var(--mono);font-size:13px;line-height:1.7;resize:vertical}
+.cost{display:grid;gap:10px;font-size:14px}
+.cost .r{display:flex;justify-content:space-between;color:var(--text2)}
+.cost .r.total{border-top:1px solid var(--line);padding-top:12px;color:var(--text);font-weight:600;font-size:16px}
+.toggle{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line);font-size:14px}
+.toggle:first-child{border-top:0}
+.sw{width:36px;height:20px;border-radius:999px;background:var(--line2);position:relative;flex-shrink:0}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s}
+.sw.on{background:var(--accent)}.sw.on::after{left:18px}
+
+/* tickets */
+.tk{display:grid;grid-template-columns:340px 1fr;gap:16px;min-height:560px}
+@media(max-width:900px){.tk{grid-template-columns:1fr}}
+.tk-list a{display:block;padding:14px 16px;border-bottom:1px solid var(--line)}
+.tk-list a.on{background:var(--accent-soft)}
+.tk-list .h{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px}
+.tk-list .h b{font-weight:500;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tk-list .m{font-size:12.5px;color:var(--text3);display:flex;gap:8px}
+.thread{display:flex;flex-direction:column}
+.thread .msgs{flex:1;padding:18px;display:grid;gap:16px;align-content:start}
+.msg{display:flex;gap:12px;max-width:80%}
+.msg.me{margin-left:auto;flex-direction:row-reverse}
+.msg .bub{background:var(--surface2);padding:11px 14px;border-radius:var(--r);font-size:14px}
+.msg.me .bub{background:var(--accent-soft)}
+.msg .meta{font-size:12px;color:var(--text3);margin-top:5px}
+.msg.note .bub{background:var(--warn-soft);border:1px dashed rgba(242,184,75,.4)}
+.msg.note .meta{color:var(--warn)}
+.reply{padding:14px 18px;border-top:1px solid var(--line);display:grid;gap:10px}
+.reply textarea{min-height:70px;resize:none}
+.reply .acts{display:flex;justify-content:space-between;align-items:center;gap:10px}
+
+/* chat widget */
+.chat-fab{position:fixed;right:22px;bottom:70px;width:52px;height:52px;border-radius:50%;background:var(--accent);box-shadow:0 10px 30px -8px rgba(107,140,255,.7);display:flex;align-items:center;justify-content:center;z-index:50}
+.chat-fab i{width:20px;height:16px;border:2px solid #fff;border-radius:6px 6px 6px 1px}
+.chat-fab em{position:absolute;top:-2px;right:-2px;width:18px;height:18px;border-radius:50%;background:var(--bad);color:#fff;font-size:11px;font-style:normal;display:flex;align-items:center;justify-content:center;font-weight:600;border:2px solid var(--bg)}
+.chat-box{position:fixed;right:22px;bottom:132px;width:340px;max-width:calc(100vw - 44px);height:440px;z-index:50;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 30px 60px -20px rgba(0,0,0,.8)}
+.chat-box .ch{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.chat-box .ch b{display:block;font-size:14px;font-weight:500}
+.chat-box .ch span{font-size:12px;color:var(--ok)}
+.chat-box .cm{flex:1;padding:14px;display:grid;gap:10px;align-content:start;overflow:auto}
+.chat-box .cm .bub{max-width:82%;padding:9px 12px;border-radius:var(--r);background:var(--surface2);font-size:13.5px}
+.chat-box .cm .bub.me{margin-left:auto;background:var(--accent-soft)}
+.chat-box .ci{padding:10px;border-top:1px solid var(--line);display:flex;gap:8px}
+.chat-box .wa{padding:8px 14px;font-size:12.5px;background:var(--ok-soft);color:var(--ok);text-align:center}
+
+/* staff */
+.drawer{position:fixed;top:0;right:0;bottom:56px;width:420px;max-width:100vw;background:var(--surface);border-left:1px solid var(--line);z-index:60;display:flex;flex-direction:column;box-shadow:-30px 0 60px -30px rgba(0,0,0,.8)}
+.drawer .dh{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line)}
+.drawer .db{padding:20px;overflow:auto;flex:1}
+.drawer .df{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px}
+.kv{display:grid;grid-template-columns:120px 1fr;gap:8px 12px;font-size:14px}
+.kv dt{color:var(--text3)}
+.ledger li{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px;list-style:none}
+.ledger li span{color:var(--text3);font-size:12.5px}
+.ledger li b{font-weight:500}.ledger li b.plus{color:var(--ok)}.ledger li b.minus{color:var(--bad)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:20px}
+.tabs a{padding:10px 14px;font-size:14px;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs a.on{color:var(--text);border-color:var(--accent)}
+.tabs a i{font-style:normal;margin-left:6px;background:var(--surface2);padding:1px 7px;border-radius:999px;font-size:12px}
+.quota{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;width:120px}
+.quota i{display:block;height:100%;background:var(--accent)}
+.quota i.warn{background:var(--warn)}.quota i.bad{background:var(--bad)}
+.select-inline{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--line);border-radius:var(--r-sm);font-size:13px;background:var(--bg2)}
+.select-inline::after{content:"";width:6px;height:6px;border-right:1.5px solid var(--text3);border-bottom:1.5px solid var(--text3);transform:rotate(45deg);margin-top:-3px}
+.dim{opacity:.5}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:55}
+</style>
+</head>
+<body>
+<!-- ===================== LANDING ===================== -->
+<section class="page on" id="p-landing">
+<div class="wrap">
+  <div class="nav">
+    <a class="logo" href="#"><i></i>FoxIndex</a>
+    <div class="nav-links"><a href="#">How it works</a><a href="#">Search engines</a><a href="#">Pricing</a><a href="#">Docs</a><a href="#">Contact</a></div>
+    <div style="display:flex;gap:10px"><a class="btn btn-ghost btn-sm" href="#">Log in</a><a class="btn btn-primary btn-sm" href="#">Create account</a></div>
+  </div>
+
+  <div class="hero">
+    <div>
+      <h1>Get your new pages into Google in hours, not weeks.</h1>
+      <p class="lead">Paste your URLs. FoxIndex submits them to Google, Bing, Yandex and every IndexNow engine, then keeps checking until each one is confirmed indexed.</p>
+      <div class="cta"><a class="btn btn-primary" href="#">Create free account</a><a class="btn btn-ghost" href="#">See how it works</a></div>
+      <div class="note">100 free credits after approval. No card needed.</div>
+    </div>
+    <div class="feed">
+      <div class="feed-top"><span>Submissions · last 10 minutes</span><span class="live">Live</span></div>
+      <div class="feed-row"><span class="u">techbazar.com.bd/laptops/lenovo-ideapad-slim-5</span><span class="pill ok">Indexed</span><span class="t">2h 14m</span></div>
+      <div class="feed-row"><span class="u">dhakafoodie.net/best-biryani-mirpur</span><span class="pill ok">Indexed</span><span class="t">3h 40m</span></div>
+      <div class="feed-row"><span class="u">hostpro.io/blog/nginx-vs-litespeed</span><span class="pill info">Submitted</span><span class="t">12m</span></div>
+      <div class="feed-row"><span class="u">jobsbd.co/jobs/senior-react-developer-4421</span><span class="pill info">Submitted</span><span class="t">4m</span></div>
+      <div class="feed-row"><span class="u">shopnear.my/product/wireless-earbuds-x3</span><span class="pill warn">Queued</span><span class="t">now</span></div>
+      <div class="feed-sum"><span><b>1,284</b> submitted today</span><span><b>91%</b> indexed in 24h</span><span><b>6</b> engines</span></div>
+    </div>
+  </div>
+
+  <div class="engines"><span>Google</span><span>Bing</span><span>Yandex</span><span>Naver</span><span>Seznam</span><span>Yep</span><span class="muted" style="border:0">and every engine on the IndexNow network</span></div>
+
+  <div class="section">
+    <h2>Three steps from publish to indexed</h2>
+    <p class="sub">Connect your site once. After that, indexing a page is a paste and a click.</p>
+    <div class="steps">
+      <div class="step"><div class="k">Step 1</div><h3>Connect your site</h3><p>Add your domain, drop one small key file on it for IndexNow, and connect Search Console with Google sign-in. Takes about two minutes.</p></div>
+      <div class="step"><div class="k">Step 2</div><h3>Submit URLs</h3><p>Paste a list, upload a CSV, or point us at your sitemap. Each URL is pushed to every engine you've enabled, in order of priority.</p></div>
+      <div class="step"><div class="k">Step 3</div><h3>Watch them get indexed</h3><p>We re-check each URL against Google every few hours and resubmit anything that hasn't landed. You see the exact timestamp it went live.</p></div>
+    </div>
+  </div>
+
+  <div class="section" style="padding-top:0">
+    <h2>Pay per URL, not per month</h2>
+    <p class="sub">Credits never expire. Your account manager can top you up any time, or buy a pack below.</p>
+    <div class="pricing">
+      <div class="card plan"><h3>Starter</h3><div class="price">$9 <small>/ 500 credits</small></div><p>For a single site or blog.</p><ul><li>All 6 search engines</li><li>Indexing status checks</li><li>Email support</li></ul><a class="btn btn-ghost" href="#">Buy Starter</a></div>
+      <div class="card plan hot"><h3>Agency</h3><div class="price">$39 <small>/ 3,000 credits</small></div><p>Multiple client sites, bulk uploads.</p><ul><li>Everything in Starter</li><li>Unlimited sites</li><li>CSV and sitemap import</li><li>Dedicated account manager</li><li>Live chat and WhatsApp support</li></ul><a class="btn btn-primary" href="#">Buy Agency</a></div>
+      <div class="card plan"><h3>API</h3><div class="price">$99 <small>/ 10,000 credits</small></div><p>Plug indexing into your own tools.</p><ul><li>Everything in Agency</li><li>REST API and webhooks</li><li>Priority queue</li><li>Custom engine routing</li></ul><a class="btn btn-ghost" href="#">Buy API</a></div>
+    </div>
+  </div>
+
+  <div class="section" style="padding-top:0">
+    <h2>Questions people ask before signing up</h2>
+    <div class="faq">
+      <details open><summary>Why does my account need approval?</summary><p>Every account is checked by a real manager before it goes live. It keeps spam sites off the platform, which keeps our submission quotas healthy for everyone. Most approvals happen within a few hours.</p></details>
+      <details><summary>Does one credit mean one URL?</summary><p>One credit covers one URL submitted to Google. IndexNow engines (Bing, Yandex and others) are included free with every submission.</p></details>
+      <details><summary>What if a page never gets indexed?</summary><p>We resubmit it up to three times through different routes. If Google still declines it, the credit is refunded automatically and the URL is flagged so you can check the page itself.</p></details>
+      <details><summary>Can I add credit without a card?</summary><p>Yes. Your account manager can add credit manually after a bank transfer, bKash, or any method you agree on.</p></details>
+    </div>
+  </div>
+
+  <div class="final"><h2>Stop waiting for the crawler.</h2><p>Create an account, connect a site, and submit your first hundred URLs on us.</p><a class="btn btn-primary" href="#">Create free account</a></div>
+  <footer><span>© 2026 FoxIndex</span><div class="links"><a href="#">Docs</a><a href="#">Status</a><a href="#">Privacy</a><a href="#">Terms</a><a href="#">Contact</a></div></footer>
+</div>
+</section>
+
+<!-- ===================== SIGNUP ===================== -->
+<section class="page" id="p-signup">
+<div class="auth">
+  <div class="auth-side">
+    <a class="logo" href="#"><i></i>FoxIndex</a>
+    <div><div class="quote">"We publish 40 product pages a day. Before, half of them sat unindexed for a month. Now they're live by the next morning."</div><div class="who">Tanvir H. — Head of SEO, TechBazar</div></div>
+    <div class="muted" style="font-size:13px">Every account is reviewed by a manager before activation.</div>
+  </div>
+  <div class="auth-main"><div class="auth-box">
+    <div class="steps-bar"><i class="done"></i><i></i><i></i></div>
+    <h2>Create your account</h2>
+    <p>Step 1 of 3 — your details. Verification and approval come next.</p>
+    <div class="row2"><div class="field"><label>Full name</label><input placeholder="Rasel Ahmed"></div><div class="field"><label>Date of birth</label><input type="date"></div></div>
+    <div class="field"><label>Email</label><input type="email" placeholder="you@company.com"><div class="hint">We'll send a 6-digit code here.</div></div>
+    <div class="field"><label>Mobile / WhatsApp</label><div style="display:flex;gap:8px"><input value="+880" style="width:90px"><input placeholder="1712 345 678"></div><div class="hint">Your manager may reach you on WhatsApp for approval.</div></div>
+    <div class="row2"><div class="field"><label>Country</label><select><option>Bangladesh</option><option>Malaysia</option><option>India</option><option>Other</option></select></div><div class="field"><label>City</label><input placeholder="Dhaka"></div></div>
+    <div class="field"><label>Password</label><input type="password" placeholder="At least 8 characters"></div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px">Continue</button>
+    <div class="foot">Already have an account? <a href="#">Log in</a></div>
+  </div></div>
+</div>
+</section>
+
+<!-- ===================== VERIFY ===================== -->
+<section class="page" id="p-verify">
+<div class="auth">
+  <div class="auth-side"><a class="logo" href="#"><i></i>FoxIndex</a><div class="quote">One more step and a manager will review your account.</div><div></div></div>
+  <div class="auth-main"><div class="auth-box">
+    <div class="steps-bar"><i class="done"></i><i class="done"></i><i></i></div>
+    <h2>Check your email</h2>
+    <p>We sent a 6-digit code to <b style="color:var(--text)">rasel@ruizedigital.com</b>. It expires in 15 minutes.</p>
+    <div class="code"><input maxlength="1" value="4"><input maxlength="1" value="8"><input maxlength="1" value="2"><input maxlength="1"><input maxlength="1"><input maxlength="1"></div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;margin-top:22px">Verify email</button>
+    <div class="foot">Didn't get it? <a href="#">Resend code</a> · <a href="#">Change email</a></div>
+  </div></div>
+</div>
+</section>
+
+<!-- ===================== PENDING APPROVAL ===================== -->
+<section class="page" id="p-pending">
+<div class="auth">
+  <div class="auth-side"><a class="logo" href="#"><i></i>FoxIndex</a><div class="quote">Approval usually takes a few hours. We'll email and WhatsApp you the moment it's done.</div><div></div></div>
+  <div class="auth-main"><div class="auth-box pending">
+    <div class="steps-bar"><i class="done"></i><i class="done"></i><i class="done"></i></div>
+    <div class="ico">⏳</div>
+    <h2 style="margin-top:0">Your account is being reviewed</h2>
+    <p>Email verified. A manager has been assigned and will approve your account shortly.</p>
+    <div class="card mgr-card" style="padding:16px"><span class="avatar">SK</span><div class="m"><b>Sadia Khan</b><span>Your account manager · usually replies within 1 hour</span></div><a class="btn btn-ok btn-sm" href="#">WhatsApp</a></div>
+    <p class="muted" style="font-size:13px">While you wait, you can read the <a href="#" style="color:var(--accent)">setup guide</a> so your site is ready to connect.</p>
+  </div></div>
+</div>
+</section>
+
+<!-- ===================== LOGIN ===================== -->
+<section class="page" id="p-login">
+<div class="auth">
+  <div class="auth-side"><a class="logo" href="#"><i></i>FoxIndex</a><div class="quote">Welcome back.</div><div></div></div>
+  <div class="auth-main"><div class="auth-box">
+    <h2 style="margin-top:0">Log in</h2>
+    <p>Use the email you registered with.</p>
+    <div class="field"><label>Email</label><input type="email" placeholder="you@company.com"></div>
+    <div class="field"><label style="display:flex;justify-content:space-between">Password <a href="#" style="color:var(--accent)">Forgot?</a></label><input type="password"></div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px">Log in</button>
+    <div class="foot">New here? <a href="#">Create an account</a></div>
+  </div></div>
+</div>
+</section>
+<!-- ===================== CLIENT DASHBOARD ===================== -->
+<section class="page" id="p-dash">
+<div class="shell">
+  <aside class="side">
+    <a class="logo" href="#"><i></i>FoxIndex</a>
+    <nav>
+      <a class="on" href="#"><i class="ic"></i>Overview</a>
+      <a href="#"><i class="ic"></i>Submit URLs</a>
+      <a href="#"><i class="ic"></i>All URLs</a>
+      <a href="#"><i class="ic"></i>Sites</a>
+      <div class="grp">Support</div>
+      <a href="#"><i class="ic"></i>Tickets</a>
+      <a href="#"><i class="ic"></i>Live chat</a>
+      <div class="grp">Account</div>
+      <a href="#"><i class="ic"></i>Credits</a>
+      <a href="#"><i class="ic"></i>API keys</a>
+      <a href="#"><i class="ic"></i>Settings</a>
+    </nav>
+    <div class="credit"><div class="n">2,140</div><div class="l">credits left · ~2,140 URLs</div><button class="btn btn-ghost btn-sm" style="margin-top:12px;width:100%;justify-content:center">Request top-up</button></div>
+    <div class="me"><span class="avatar">RA</span><div>Rasel Ahmed<span>Manager: Sadia Khan</span></div></div>
+  </aside>
+  <div class="main">
+    <div class="topbar"><div><h2>Overview</h2><div class="crumb">Saturday, 12 September</div></div><div class="right"><div class="search"><input placeholder="Search a URL"></div><a class="btn btn-primary btn-sm" href="#">Submit URLs</a></div></div>
+    <div class="mobile-tabs"><a class="on" href="#">Overview</a><a href="#">Submit</a><a href="#">URLs</a><a href="#">Tickets</a><a href="#">Credits</a></div>
+    <div class="grid4">
+      <div class="card stat"><div class="n">1,843</div><div class="l">URLs indexed · all time</div><div class="d" style="color:var(--ok)">+126 this week</div></div>
+      <div class="card stat"><div class="n">92%</div><div class="l">indexed within 24 hours</div><div class="d muted">30-day average</div></div>
+      <div class="card stat"><div class="n">57</div><div class="l">waiting for Google</div><div class="d muted">next check in 3h</div></div>
+      <div class="card stat"><div class="n">4</div><div class="l">failed · credits refunded</div><div class="d" style="color:var(--bad)">2 need attention</div></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><div class="card-h"><h3>Submitted vs indexed · last 14 days</h3><span class="select-inline">14 days</span></div>
+        <div class="bars"><i style="height:40%"><b style="height:75%"></b></i><i style="height:55%"><b style="height:80%"></b></i><i style="height:38%"><b style="height:90%"></b></i><i style="height:70%"><b style="height:85%"></b></i><i style="height:62%"><b style="height:88%"></b></i><i style="height:30%"><b style="height:95%"></b></i><i style="height:25%"><b style="height:92%"></b></i><i style="height:80%"><b style="height:83%"></b></i><i style="height:95%"><b style="height:86%"></b></i><i style="height:66%"><b style="height:90%"></b></i><i style="height:72%"><b style="height:87%"></b></i><i style="height:50%"><b style="height:94%"></b></i><i style="height:88%"><b style="height:70%"></b></i><i style="height:100%"><b style="height:40%"></b></i></div>
+        <div class="bars-x"><span>30 Aug</span><span>5 Sep</span><span>12 Sep</span></div></div>
+      <div class="card"><div class="card-h"><h3>By search engine</h3></div><div class="card-b chan">
+        <div class="r"><span>Google</span><div class="b"><i style="width:91%"></i></div><span class="v">91%</span></div>
+        <div class="r"><span>Bing</span><div class="b"><i class="ok" style="width:99%"></i></div><span class="v">99%</span></div>
+        <div class="r"><span>Yandex</span><div class="b"><i class="ok" style="width:97%"></i></div><span class="v">97%</span></div>
+        <div class="r"><span>Naver</span><div class="b"><i class="ok" style="width:88%"></i></div><span class="v">88%</span></div>
+        <div class="r"><span>Seznam</span><div class="b"><i class="ok" style="width:94%"></i></div><span class="v">94%</span></div>
+        <p style="font-size:12.5px;margin-top:6px">Share of submitted URLs confirmed indexed within 72h.</p>
+      </div></div>
+    </div>
+    <div class="card"><div class="card-h"><h3>Recent URLs</h3><a href="#" style="font-size:13px;color:var(--accent)">View all 1,904</a></div>
+      <table><thead><tr><th>URL</th><th>Site</th><th>Status</th><th>Submitted</th><th>Indexed</th></tr></thead><tbody>
+      <tr><td class="url-cell">/laptops/lenovo-ideapad-slim-5-gen-9</td><td>techbazar.com.bd</td><td><span class="pill ok">Indexed</span></td><td class="muted">Today 09:12</td><td>Today 11:26</td></tr>
+      <tr><td class="url-cell">/laptops/asus-vivobook-16-x1605</td><td>techbazar.com.bd</td><td><span class="pill ok">Indexed</span></td><td class="muted">Today 09:12</td><td>Today 13:02</td></tr>
+      <tr><td class="url-cell">/blog/nginx-vs-litespeed-2026</td><td>hostpro.io</td><td><span class="pill info">Submitted</span></td><td class="muted">Today 14:40</td><td class="muted">checking in 3h</td></tr>
+      <tr><td class="url-cell">/jobs/senior-react-developer-4421</td><td>jobsbd.co</td><td><span class="pill info">Submitted</span></td><td class="muted">Today 14:48</td><td class="muted">—</td></tr>
+      <tr><td class="url-cell">/product/wireless-earbuds-x3</td><td>shopnear.my</td><td><span class="pill warn">Queued</span></td><td class="muted">Today 14:52</td><td class="muted">—</td></tr>
+      <tr><td class="url-cell">/old-promo-2024</td><td>shopnear.my</td><td><span class="pill bad">Failed · 404</span></td><td class="muted">Yesterday</td><td class="muted">credit refunded</td></tr>
+      </tbody></table></div>
+  </div>
+</div>
+<a class="chat-fab" href="#"><i></i><em>1</em></a>
+</section>
+
+<!-- ===================== SUBMIT URLS ===================== -->
+<section class="page" id="p-submit">
+<div class="shell">
+  <aside class="side">
+    <a class="logo" href="#"><i></i>FoxIndex</a>
+    <nav><a href="#"><i class="ic"></i>Overview</a><a class="on" href="#"><i class="ic"></i>Submit URLs</a><a href="#"><i class="ic"></i>All URLs</a><a href="#"><i class="ic"></i>Sites</a><div class="grp">Support</div><a href="#"><i class="ic"></i>Tickets</a><a href="#"><i class="ic"></i>Live chat</a><div class="grp">Account</div><a href="#"><i class="ic"></i>Credits</a><a href="#"><i class="ic"></i>API keys</a><a href="#"><i class="ic"></i>Settings</a></nav>
+    <div class="credit"><div class="n">2,140</div><div class="l">credits left</div></div>
+    <div class="me"><span class="avatar">RA</span><div>Rasel Ahmed<span>Manager: Sadia Khan</span></div></div>
+  </aside>
+  <div class="main">
+    <div class="topbar"><div><h2>Submit URLs</h2><div class="crumb">One URL per line. Duplicates are skipped and not charged.</div></div></div>
+    <div class="submit">
+      <div class="card"><div class="card-h"><h3>URLs</h3><div style="display:flex;gap:8px"><a class="btn btn-ghost btn-sm" href="#">Upload CSV</a><a class="btn btn-ghost btn-sm" href="#">From sitemap</a></div></div>
+        <div class="card-b">
+          <div class="field"><label>Site</label><select><option>techbazar.com.bd — Search Console connected</option><option>hostpro.io — Search Console connected</option><option>shopnear.my — IndexNow only</option></select></div>
+          <div class="field"><label>URLs <span class="muted">· 5 detected</span></label><textarea>https://techbazar.com.bd/laptops/hp-pavilion-15-eg3
+https://techbazar.com.bd/laptops/dell-inspiron-14-5440
+https://techbazar.com.bd/monitors/lg-27-ultragear
+https://techbazar.com.bd/monitors/samsung-odyssey-g5
+https://techbazar.com.bd/blog/best-laptops-under-60k-2026</textarea></div>
+        </div></div>
+      <div style="display:grid;gap:16px;align-content:start">
+        <div class="card"><div class="card-h"><h3>Engines</h3></div><div class="card-b" style="padding-top:6px">
+          <div class="toggle"><div>Google <span class="muted" style="font-size:12.5px">· 1 credit each</span></div><span class="sw on"></span></div>
+          <div class="toggle"><div>Bing, Yandex, Naver, Seznam, Yep <span class="muted" style="font-size:12.5px">· free</span></div><span class="sw on"></span></div>
+          <div class="toggle"><div>Re-check until indexed <span class="muted" style="font-size:12.5px">· up to 3 retries</span></div><span class="sw on"></span></div>
+        </div></div>
+        <div class="card"><div class="card-h"><h3>Cost</h3></div><div class="card-b cost">
+          <div class="r"><span>5 URLs × Google</span><span>5 credits</span></div>
+          <div class="r"><span>5 URLs × IndexNow engines</span><span>0 credits</span></div>
+          <div class="r total"><span>Total</span><span>5 credits</span></div>
+          <div class="r"><span>Balance after</span><span style="color:var(--ok)">2,135</span></div>
+          <button class="btn btn-primary" style="justify-content:center;padding:12px;margin-top:6px">Submit 5 URLs</button>
+          <p style="font-size:12.5px">Credits for URLs Google rejects are refunded automatically.</p>
+        </div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ===================== TICKETS + CHAT ===================== -->
+<section class="page" id="p-tickets">
+<div class="shell">
+  <aside class="side">
+    <a class="logo" href="#"><i></i>FoxIndex</a>
+    <nav><a href="#"><i class="ic"></i>Overview</a><a href="#"><i class="ic"></i>Submit URLs</a><a href="#"><i class="ic"></i>All URLs</a><a href="#"><i class="ic"></i>Sites</a><div class="grp">Support</div><a class="on" href="#"><i class="ic"></i>Tickets</a><a href="#"><i class="ic"></i>Live chat</a><div class="grp">Account</div><a href="#"><i class="ic"></i>Credits</a><a href="#"><i class="ic"></i>API keys</a><a href="#"><i class="ic"></i>Settings</a></nav>
+    <div class="credit"><div class="n">2,140</div><div class="l">credits left</div></div>
+    <div class="me"><span class="avatar">RA</span><div>Rasel Ahmed<span>Manager: Sadia Khan</span></div></div>
+  </aside>
+  <div class="main">
+    <div class="topbar"><div><h2>Tickets</h2><div class="crumb">Your manager replies within 1 business hour on average.</div></div><div class="right"><a class="btn btn-primary btn-sm" href="#">New ticket</a></div></div>
+    <div class="tk">
+      <div class="card tk-list" style="overflow:hidden">
+        <div class="card-h"><h3>3 open</h3><span class="select-inline">All</span></div>
+        <a class="on" href="#"><div class="h"><b>Credit not added after bKash payment</b><span class="pill warn">Open</span></div><div class="m"><span class="mono">TKT-1042</span><span>Billing</span><span>· 2h ago</span></div></a>
+        <a href="#"><div class="h"><b>URLs stuck on Submitted for 3 days</b><span class="pill info">In progress</span></div><div class="m"><span class="mono">TKT-1038</span><span>Indexing</span><span>· Yesterday</span></div></a>
+        <a href="#"><div class="h"><b>Change WhatsApp number on account</b><span class="pill neutral">Waiting on you</span></div><div class="m"><span class="mono">TKT-1031</span><span>Account</span><span>· 4 Sep</span></div></a>
+        <a class="dim" href="#"><div class="h"><b>Add hostpro.io to my sites</b><span class="pill ok">Resolved</span></div><div class="m"><span class="mono">TKT-1019</span><span>Account</span><span>· 28 Aug</span></div></a>
+      </div>
+      <div class="card thread">
+        <div class="card-h"><div><h3>Credit not added after bKash payment</h3><div class="muted" style="font-size:12.5px"><span class="mono">TKT-1042</span> · Billing · High priority · Assigned to Sadia Khan</div></div><span class="pill warn">Open</span></div>
+        <div class="msgs">
+          <div class="msg me"><span class="avatar sm">RA</span><div><div class="bub">I sent 2,000 BDT via bKash to the number on the invoice at 11:40 today (TrxID BJK7X2R4P1) but my balance still shows 2,140. Can you check?</div><div class="meta">You · 12:05</div></div></div>
+          <div class="msg"><span class="avatar sm">SK</span><div><div class="bub">Thanks Rasel, I can see the transaction. Finance confirms it in batches every two hours, so it should land by 14:00. I'll add the 1,000 credits manually now so you're not blocked.</div><div class="meta">Sadia Khan · Manager · 12:31</div></div></div>
+          <div class="msg"><span class="avatar sm">SK</span><div><div class="bub">Added 1,000 credits. Your balance is now 3,140. Leaving this open until finance reconciles.</div><div class="meta">Sadia Khan · Manager · 12:33</div></div></div>
+        </div>
+        <div class="reply"><textarea placeholder="Write a reply…"></textarea><div class="acts"><a href="#" class="muted" style="font-size:13px">Attach file</a><div style="display:flex;gap:8px"><a class="btn btn-ghost btn-sm" href="#">Mark resolved</a><a class="btn btn-primary btn-sm" href="#">Send reply</a></div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="card chat-box">
+  <div class="ch"><span class="avatar">SK</span><div><b>Sadia Khan</b><span>Online · your account manager</span></div></div>
+  <div class="cm"><div class="bub">Hi Rasel, saw your ticket. Credits are added — anything else stuck?</div><div class="bub me">All good, thanks. One quick one: does IndexNow work on a subdomain?</div><div class="bub">Yes — add it as a separate site so it gets its own key file.</div></div>
+  <div class="wa">Prefer WhatsApp? Message Sadia at +880 17XX XXX XXX</div>
+  <div class="ci"><input placeholder="Type a message"><button class="btn btn-primary btn-sm">Send</button></div>
+</div>
+<a class="chat-fab" href="#"><i></i></a>
+</section>
+<!-- ===================== MANAGER PANEL ===================== -->
+<section class="page" id="p-manager">
+<div class="shell">
+  <aside class="side">
+    <a class="logo" href="#"><i></i>FoxIndex <span class="pill info" style="margin-left:6px">Manager</span></a>
+    <nav><a class="on" href="#"><i class="ic"></i>My clients</a><a href="#"><i class="ic"></i>Approvals <i class="pill warn" style="margin-left:auto">3</i></a><a href="#"><i class="ic"></i>Tickets <i class="pill bad" style="margin-left:auto">5</i></a><a href="#"><i class="ic"></i>Live chat</a><a href="#"><i class="ic"></i>Credit requests</a></nav>
+    <div class="credit"><div class="n">41</div><div class="l">clients assigned to you</div></div>
+    <div class="me"><span class="avatar">SK</span><div>Sadia Khan<span>Manager</span></div></div>
+  </aside>
+  <div class="main">
+    <div class="topbar"><div><h2>My clients</h2><div class="crumb">41 clients · 3 waiting for approval</div></div><div class="right"><div class="search"><input placeholder="Search by name, email, phone"></div></div></div>
+    <div class="tabs"><a href="#">All<i>41</i></a><a class="on" href="#">Pending approval<i>3</i></a><a href="#">Active<i>36</i></a><a href="#">Suspended<i>2</i></a></div>
+    <div class="card"><table><thead><tr><th>Client</th><th>Contact</th><th>Location</th><th>Signed up</th><th>Email</th><th></th></tr></thead><tbody>
+      <tr><td><div style="display:flex;gap:10px;align-items:center"><span class="avatar sm">MK</span><div>Mahmud Karim<div class="muted" style="font-size:12.5px">mahmud@dhakafoodie.net</div></div></div></td><td class="mono">+880 1811 223 344</td><td>Dhaka, BD</td><td class="muted">2h ago</td><td><span class="pill ok">Verified</span></td><td style="text-align:right"><a class="btn btn-primary btn-sm" href="#">Review</a></td></tr>
+      <tr><td><div style="display:flex;gap:10px;align-items:center"><span class="avatar sm">NL</span><div>Nurul Lim<div class="muted" style="font-size:12.5px">nurul@shopnear.my</div></div></div></td><td class="mono">+60 12 345 6789</td><td>Kuala Lumpur, MY</td><td class="muted">5h ago</td><td><span class="pill ok">Verified</span></td><td style="text-align:right"><a class="btn btn-primary btn-sm" href="#">Review</a></td></tr>
+      <tr class="dim"><td><div style="display:flex;gap:10px;align-items:center"><span class="avatar sm">AR</span><div>Arif Rahman<div class="muted" style="font-size:12.5px">arif.r@gmail.com</div></div></div></td><td class="mono">+880 1911 000 111</td><td>Chittagong, BD</td><td class="muted">Yesterday</td><td><span class="pill warn">Not verified</span></td><td style="text-align:right"><a class="btn btn-ghost btn-sm" href="#">Resend code</a></td></tr>
+    </tbody></table></div>
+  </div>
+</div>
+<div class="overlay"></div>
+<div class="drawer">
+  <div class="dh"><div><h3>Mahmud Karim</h3><div class="muted" style="font-size:12.5px">Signed up 2h ago · email verified</div></div><button class="btn btn-ghost btn-sm">Close</button></div>
+  <div class="db">
+    <dl class="kv"><dt>Email</dt><dd>mahmud@dhakafoodie.net</dd><dt>WhatsApp</dt><dd class="mono">+880 1811 223 344 <a href="#" style="color:var(--ok);margin-left:6px;font-family:var(--font)">Message</a></dd><dt>Date of birth</dt><dd>14 Mar 1992</dd><dt>Location</dt><dd>Dhaka, Bangladesh</dd><dt>Signup IP</dt><dd class="mono">103.92.xx.xx</dd></dl>
+    <div style="margin:22px 0 8px;font-weight:500">Starting credit</div>
+    <div class="field"><input value="100"><div class="hint">100 free credits is the default for new accounts. Add more if the client has already paid.</div></div>
+    <div class="field"><label>Note for the client (optional)</label><textarea style="min-height:70px">Welcome! Your account is live. Start by adding your site under Sites.</textarea></div>
+    <div style="margin:22px 0 8px;font-weight:500">Internal note</div>
+    <div class="field"><textarea style="min-height:60px" placeholder="Only visible to staff"></textarea></div>
+  </div>
+  <div class="df"><a class="btn btn-danger btn-sm" href="#">Reject</a><a class="btn btn-primary" href="#">Approve and add 100 credits</a></div>
+</div>
+</section>
+
+<!-- ===================== MANAGER — CLIENT DETAIL ===================== -->
+<section class="page" id="p-client">
+<div class="shell">
+  <aside class="side">
+    <a class="logo" href="#"><i></i>FoxIndex <span class="pill info" style="margin-left:6px">Manager</span></a>
+    <nav><a class="on" href="#"><i class="ic"></i>My clients</a><a href="#"><i class="ic"></i>Approvals</a><a href="#"><i class="ic"></i>Tickets</a><a href="#"><i class="ic"></i>Live chat</a><a href="#"><i class="ic"></i>Credit requests</a></nav>
+    <div class="me"><span class="avatar">SK</span><div>Sadia Khan<span>Manager</span></div></div>
+  </aside>
+  <div class="main">
+    <div class="topbar"><div><div class="crumb">My clients / Rasel Ahmed</div><h2>Rasel Ahmed <span class="pill ok" style="margin-left:8px">Active</span></h2></div><div class="right"><a class="btn btn-ok btn-sm" href="#">WhatsApp</a><a class="btn btn-ghost btn-sm" href="#">Open chat</a><a class="btn btn-primary btn-sm" href="#">Add credit</a></div></div>
+    <div class="grid4">
+      <div class="card stat"><div class="n">2,140</div><div class="l">credit balance</div></div>
+      <div class="card stat"><div class="n">1,904</div><div class="l">URLs submitted</div></div>
+      <div class="card stat"><div class="n">3</div><div class="l">sites connected</div></div>
+      <div class="card stat"><div class="n">3</div><div class="l">open tickets</div><div class="d" style="color:var(--warn)">1 high priority</div></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><div class="card-h"><h3>Credit ledger</h3><a href="#" style="font-size:13px;color:var(--accent)">Export</a></div><div class="card-b" style="padding-top:4px"><ul class="ledger">
+        <li><div>Manual add — bKash BJK7X2R4P1<span style="display:block">Today 12:33 · by Sadia Khan</span></div><b class="plus">+1,000</b></li>
+        <li><div>Deduction — 5 URLs, techbazar.com.bd<span style="display:block">Today 14:52</span></div><b class="minus">−5</b></li>
+        <li><div>Refund — /old-promo-2024 returned 404<span style="display:block">Yesterday 09:10 · automatic</span></div><b class="plus">+1</b></li>
+        <li><div>Deduction — 120 URLs, hostpro.io<span style="display:block">10 Sep 16:04</span></div><b class="minus">−120</b></li>
+        <li><div>Manual add — Agency pack, card<span style="display:block">1 Sep · by system</span></div><b class="plus">+3,000</b></li>
+      </ul></div></div>
+      <div class="card"><div class="card-h"><h3>Account</h3><a href="#" style="font-size:13px;color:var(--accent)">Edit</a></div><div class="card-b"><dl class="kv"><dt>Email</dt><dd>rasel@ruizedigital.com</dd><dt>WhatsApp</dt><dd class="mono">+880 17XX XXX XXX</dd><dt>DOB</dt><dd>—</dd><dt>Location</dt><dd>Dhaka, Bangladesh</dd><dt>Approved</dt><dd>1 Sep by Sadia Khan</dd><dt>Last login</dt><dd>Today 14:38</dd></dl>
+        <div style="display:flex;gap:8px;margin-top:20px"><a class="btn btn-ghost btn-sm" href="#">Reset password</a><a class="btn btn-danger btn-sm" href="#">Suspend</a></div></div></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ===================== ADMIN — USERS ===================== -->
+<section class="page" id="p-admin">
+<div class="shell">
+  <aside class="side">
+    <a class="logo" href="#"><i></i>FoxIndex <span class="pill info" style="margin-left:6px">Admin</span></a>
+    <nav><a class="on" href="#"><i class="ic"></i>Users</a><a href="#"><i class="ic"></i>Managers</a><a href="#"><i class="ic"></i>Credits</a><a href="#"><i class="ic"></i>All tickets</a><a href="#"><i class="ic"></i>Submissions</a><a href="#"><i class="ic"></i>Audit log</a><div class="grp">Superadmin</div><a href="#"><i class="ic"></i>Indexing providers</a><a href="#"><i class="ic"></i>Staff and roles</a></nav>
+    <div class="me"><span class="avatar">TA</span><div>Tania Ahmed<span>Admin</span></div></div>
+  </aside>
+  <div class="main">
+    <div class="topbar"><div><h2>Users</h2><div class="crumb">312 users · 8 managers · 2 admins</div></div><div class="right"><div class="search"><input placeholder="Search users"></div><a class="btn btn-primary btn-sm" href="#">Add credit</a></div></div>
+    <div class="tabs"><a class="on" href="#">All<i>312</i></a><a href="#">Unassigned<i>4</i></a><a href="#">Pending<i>11</i></a><a href="#">Suspended<i>6</i></a></div>
+    <div class="card"><table><thead><tr><th>User</th><th>Role</th><th>Status</th><th>Manager</th><th>Credits</th><th>Joined</th><th></th></tr></thead><tbody>
+      <tr><td>Rasel Ahmed<div class="muted" style="font-size:12.5px">rasel@ruizedigital.com</div></td><td>Client</td><td><span class="pill ok">Active</span></td><td><span class="select-inline">Sadia Khan</span></td><td class="mono">2,140</td><td class="muted">1 Sep</td><td style="text-align:right"><a class="btn btn-ghost btn-sm" href="#">Open</a></td></tr>
+      <tr><td>Mahmud Karim<div class="muted" style="font-size:12.5px">mahmud@dhakafoodie.net</div></td><td>Client</td><td><span class="pill warn">Pending</span></td><td><span class="select-inline" style="color:var(--warn)">Unassigned</span></td><td class="mono">0</td><td class="muted">Today</td><td style="text-align:right"><a class="btn btn-ghost btn-sm" href="#">Open</a></td></tr>
+      <tr><td>Nurul Lim<div class="muted" style="font-size:12.5px">nurul@shopnear.my</div></td><td>Client</td><td><span class="pill warn">Pending</span></td><td><span class="select-inline">Sadia Khan</span></td><td class="mono">0</td><td class="muted">Today</td><td style="text-align:right"><a class="btn btn-ghost btn-sm" href="#">Open</a></td></tr>
+      <tr><td>Sadia Khan<div class="muted" style="font-size:12.5px">sadia@foxindex.com</div></td><td>Manager</td><td><span class="pill ok">Active</span></td><td class="muted">41 clients</td><td class="muted">—</td><td class="muted">Jul</td><td style="text-align:right"><a class="btn btn-ghost btn-sm" href="#">Open</a></td></tr>
+      <tr><td>Farhan Ali<div class="muted" style="font-size:12.5px">farhan@seoworks.bd</div></td><td>Client</td><td><span class="pill bad">Suspended</span></td><td><span class="select-inline">Imran H.</span></td><td class="mono">380</td><td class="muted">Aug</td><td style="text-align:right"><a class="btn btn-ghost btn-sm" href="#">Open</a></td></tr>
+    </tbody></table></div>
+  </div>
+</div>
+</section>
+
+<!-- ===================== SUPERADMIN — PROVIDERS ===================== -->
+<section class="page" id="p-super">
+<div class="shell">
+  <aside class="side">
+    <a class="logo" href="#"><i></i>FoxIndex <span class="pill bad" style="margin-left:6px">Superadmin</span></a>
+    <nav><a href="#"><i class="ic"></i>Users</a><a href="#"><i class="ic"></i>Managers</a><a href="#"><i class="ic"></i>Credits</a><a href="#"><i class="ic"></i>All tickets</a><a href="#"><i class="ic"></i>Submissions</a><a href="#"><i class="ic"></i>Audit log</a><div class="grp">Superadmin</div><a class="on" href="#"><i class="ic"></i>Indexing providers</a><a href="#"><i class="ic"></i>Staff and roles</a></nav>
+    <div class="me"><span class="avatar">RA</span><div>Rasel Ahmed<span>Superadmin</span></div></div>
+  </aside>
+  <div class="main">
+    <div class="topbar"><div><h2>Indexing providers</h2><div class="crumb">Submissions try providers in priority order until one accepts.</div></div><div class="right"><a class="btn btn-primary btn-sm" href="#">Add provider</a></div></div>
+    <div class="grid4">
+      <div class="card stat"><div class="n">1,284</div><div class="l">URLs submitted today</div></div>
+      <div class="card stat"><div class="n">14 / 20</div><div class="l">Google service accounts healthy</div><div class="d" style="color:var(--warn)">6 near daily quota</div></div>
+      <div class="card stat"><div class="n">$0.004</div><div class="l">avg external cost per URL</div></div>
+      <div class="card stat"><div class="n">99.2%</div><div class="l">provider uptime · 30d</div></div>
+    </div>
+    <div class="card" style="margin-bottom:16px"><table><thead><tr><th>Priority</th><th>Provider</th><th>Type</th><th>Today's quota</th><th>Success 7d</th><th>Client cost</th><th>Status</th><th></th></tr></thead><tbody>
+      <tr><td class="mono">1</td><td>Google Indexing API<div class="muted" style="font-size:12.5px">20 service accounts, rotated</div></td><td>google_indexing</td><td><div class="quota"><i style="width:72%"></i></div><span class="muted" style="font-size:12px">2,880 / 4,000</span></td><td>91%</td><td class="mono">1 credit</td><td><span class="pill ok">Active</span></td><td style="text-align:right"><a class="btn btn-ghost btn-sm" href="#">Edit</a></td></tr>
+      <tr><td class="mono">2</td><td>IndexNow<div class="muted" style="font-size:12.5px">api.indexnow.org</div></td><td>indexnow</td><td><span class="muted" style="font-size:12px">Unlimited</span></td><td>99%</td><td class="mono">0</td><td><span class="pill ok">Active</span></td><td style="text-align:right"><a class="btn btn-ghost btn-sm" href="#">Edit</a></td></tr>
+      <tr><td class="mono">3</td><td>Search Console sitemap ping</td><td>search_console_sitemap</td><td><div class="quota"><i style="width:31%"></i></div><span class="muted" style="font-size:12px">620 / 2,000</span></td><td>—</td><td class="mono">0</td><td><span class="pill ok">Active</span></td><td style="text-align:right"><a class="btn btn-ghost btn-sm" href="#">Edit</a></td></tr>
+      <tr><td class="mono">4</td><td>SpeedyIndex (external)<div class="muted" style="font-size:12.5px">fallback for retries</div></td><td>external_api</td><td><div class="quota"><i class="warn" style="width:88%"></i></div><span class="muted" style="font-size:12px">4,400 / 5,000</span></td><td>76%</td><td class="mono">1 credit</td><td><span class="pill ok">Active</span></td><td style="text-align:right"><a class="btn btn-ghost btn-sm" href="#">Edit</a></td></tr>
+      <tr class="dim"><td class="mono">5</td><td>Omega Indexer (external)</td><td>external_api</td><td><div class="quota"><i class="bad" style="width:100%"></i></div><span class="muted" style="font-size:12px">Key expired</span></td><td>41%</td><td class="mono">1 credit</td><td><span class="pill bad">Paused</span></td><td style="text-align:right"><a class="btn btn-ghost btn-sm" href="#">Edit</a></td></tr>
+    </tbody></table></div>
+    <div class="card" style="max-width:640px"><div class="card-h"><h3>Add external provider</h3></div><div class="card-b">
+      <div class="row2"><div class="field"><label>Name</label><input placeholder="e.g. SpeedyIndex"></div><div class="field"><label>Type</label><select><option>external_api</option><option>google_indexing</option><option>indexnow</option></select></div></div>
+      <div class="field"><label>Endpoint</label><input class="mono" placeholder="https://api.provider.com/v1/submit"></div>
+      <div class="field"><label>API key</label><input type="password" placeholder="Stored encrypted"></div>
+      <div class="row2"><div class="field"><label>Daily quota</label><input placeholder="Leave empty for unlimited"></div><div class="field"><label>Priority</label><input value="5"><div class="hint">Lower runs first.</div></div></div>
+      <div class="row2"><div class="field"><label>Credits charged to client</label><input value="1"></div><div class="field"><label>Our cost per URL (USD)</label><input placeholder="0.004"></div></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end"><a class="btn btn-ghost" href="#">Test connection</a><a class="btn btn-primary" href="#">Save provider</a></div>
+    </div></div>
+  </div>
+</div>
+</section>
+
+<div class="switcher">
+  <button class="on" data-p="p-landing">Home</button><button data-p="p-signup">Sign up</button><button data-p="p-verify">Verify</button><button data-p="p-pending">Pending</button><button data-p="p-login">Log in</button><button data-p="p-dash">Dashboard</button><button data-p="p-submit">Submit</button><button data-p="p-tickets">Tickets + chat</button><button data-p="p-manager">Manager</button><button data-p="p-client">Client detail</button><button data-p="p-admin">Admin</button><button data-p="p-super">Superadmin</button>
+</div>
+<script>
+document.querySelectorAll('.switcher button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.switcher button').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');document.getElementById(b.dataset.p).classList.add('on');window.scrollTo(0,0);
+}));
+</script>
+</body></html>

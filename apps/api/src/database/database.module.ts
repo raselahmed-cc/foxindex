@@ -20,7 +20,11 @@ type DbClient = ReturnType<typeof createDbClient>;
       provide: DATABASE_CLIENT,
       inject: [ConfigService],
       useFactory: (config: ConfigService): DbClient =>
-        createDbClient({ connectionString: config.getOrThrow<string>('DATABASE_URL') }),
+        createDbClient({
+          connectionString: config.getOrThrow<string>('DATABASE_URL'),
+          ssl: config.get<string>('DATABASE_SSL') === 'true',
+          max: config.get<number>('DATABASE_POOL_MAX') ?? 20,
+        }),
     },
     {
       provide: DATABASE,

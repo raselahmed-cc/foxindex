@@ -1,5 +1,12 @@
 # 0011: A credit ledger gates submissions — this is not the deferred billing system
 
+> **Scoping updated by [ADR 0013](./0013-flatten-to-project-single-indexnow-key.md).**
+> The atomicity mechanic below is unchanged; `creditBalance` and the
+> signup-bonus grant moved from `organizations` to `user` (there is no
+> organization left), and the grant now runs from a Better Auth
+> `databaseHooks.user.create.after` hook instead of
+> `OrganizationsRepository.createWithOwner`.
+
 ## Status
 
 Accepted.

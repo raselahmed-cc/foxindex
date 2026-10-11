@@ -19,8 +19,8 @@ services:
       CORS_ORIGIN: https://app.foxindex.example
       DATABASE_URL: ${DATABASE_URL} # Neon pooled connection string, ?sslmode=require
       REDIS_URL: ${REDIS_URL} # Upstash rediss:// (TLS) URL
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET} # long, random — never the dev default
-      BETTER_AUTH_URL: https://app.foxindex.example
+      JWT_SECRET: ${JWT_SECRET} # long, random — never the dev default
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY} # long, random — rotating it breaks stored provider keys
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
       SMTP_USER: ${SMTP_USER}
@@ -42,18 +42,6 @@ services:
       REDIS_URL: ${REDIS_URL}
       SUBMISSION_WORKER_CONCURRENCY: 10
       INDEXNOW_API_BASE_URL: https://api.indexnow.org/indexnow
-
-  worker-verification:
-    build:
-      context: ../..
-      dockerfile: infrastructure/docker/Dockerfile.worker
-      args:
-        WORKER_NAME: verification
-    environment:
-      LOG_LEVEL: info
-      DATABASE_URL: ${DATABASE_URL}
-      REDIS_URL: ${REDIS_URL}
-      VERIFICATION_WORKER_CONCURRENCY: 10
 
   web:
     build:

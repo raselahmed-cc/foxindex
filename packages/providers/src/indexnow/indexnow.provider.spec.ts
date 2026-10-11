@@ -8,7 +8,6 @@ function jsonResponse(status: number, headers: Record<string, string> = {}, body
 }
 
 const baseRequest: SubmissionRequest = {
-  organizationId: 'org_1',
   domainHostname: 'example.com',
   urls: ['https://example.com/page-1', 'https://example.com/page-2'],
   credentials: { type: 'INDEXNOW_KEY', indexNowKey: 'a'.repeat(32) },

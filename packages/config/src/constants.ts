@@ -15,7 +15,6 @@ export const SERVICE_NAMES = {
   API: 'foxindex-api',
   WEB: 'foxindex-web',
   SUBMISSION_WORKER: 'foxindex-worker-submission',
-  VERIFICATION_WORKER: 'foxindex-worker-verification',
 } as const;
 
 // Lowered from 100, not raised — measured live against real Neon (docs/adr/0011)
@@ -26,5 +25,14 @@ export const SERVICE_NAMES = {
 // is deferred, not built here — see the ADR.
 export const MAX_URLS_PER_SUBMISSION_REQUEST = 20;
 
-/** New organizations start with this many credits (docs/adr/0011). */
+/** New users start with this many credits (docs/adr/0011, moved to per-user in docs/adr/0013). */
 export const STARTER_CREDIT_BALANCE = 50;
+
+/** JWT access token lifetime — short-lived; refresh tokens (sessions table) carry the long-lived grant. */
+export const JWT_ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
+/** Refresh token / sessions row lifetime. */
+export const JWT_REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
+/** Email verification code validity (CLAUDE.md "Account lifecycle"). */
+export const EMAIL_VERIFICATION_CODE_TTL_MINUTES = 15;
+/** Default starting credit a manager may grant on approval (CLAUDE.md "Account lifecycle"). */
+export const DEFAULT_APPROVAL_CREDIT_GRANT = 100;

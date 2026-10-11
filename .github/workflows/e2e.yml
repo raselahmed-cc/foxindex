@@ -11,8 +11,8 @@ env:
   # golden-path run and keep this workflow independent of any real account.
   DATABASE_URL: postgres://foxindex:foxindex@localhost:5432/foxindex
   REDIS_URL: redis://localhost:6379
-  BETTER_AUTH_SECRET: ci-only-not-a-real-secret-0123456789
-  BETTER_AUTH_URL: http://localhost:3001
+  JWT_SECRET: ci-only-not-a-real-secret-0123456789
+  ENCRYPTION_KEY: ci-only-encryption-key-0123456789
   CORS_ORIGIN: http://localhost:3000
   NEXT_PUBLIC_API_URL: http://localhost:3001
   API_PORT: '3001'

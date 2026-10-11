@@ -1,71 +1,113 @@
-# Deployment
+# Deploying FoxIndex
 
-**Current state: nothing is deployed anywhere, and no deploy target is
-configured.** This document says what exists to deploy *from* and what's
-still missing, rather than pretending a target exists — `.github/workflows/ci.yml`'s
-`deploy` job is `if: false` with a comment pointing here for exactly this
-reason.
+A single Linux server (VPS) runs the whole platform with Docker Compose:
+Caddy (HTTPS) → web (Next.js) + API (NestJS) + submission worker, with
+Postgres and Redis. Everything is in `infrastructure/docker/`.
 
-## What exists
+> The images have not yet been built on real Docker in this repo's history
+> (the development machine has no Docker). The application has been verified
+> in production mode outside containers — compiled API with production env
+> validation, the Next.js standalone server, and the worker. Run the first
+> deploy on a staging server before pointing customers at it.
 
-- **Docker images**: `infrastructure/docker/Dockerfile.{api,web,worker}`
-  build production images for the API, the web app, and the two workers
-  (the worker image takes a `WORKER_NAME` build arg to pick
-  submission-vs-verification). `ci.yml`'s `docker-build` job builds all
-  three (`--load`, no push) on every PR as a build-still-works check.
-- **A staging compose example**: `infrastructure/docker/docker-compose.staging.example.yml`
-  documents exactly what changes moving from local dev to a real
-  environment — remove the local `postgres`/`redis`/`maildev` containers
-  entirely (Neon, Upstash, and a real SMTP relay are external managed
-  services; the constitution is explicit that these should never be
-  self-hosted in containers) and repoint the same env vars at them. No
-  application code or image changes either way — this is the same
-  Docker-vs-no-Docker portability already exercised for local dev (see
-  `docs/architecture.md`'s note on what's live-verified: the actual
-  golden path has run against real Neon/Upstash from plain `pnpm dev`
-  processes, just not from inside these containers, since this
-  environment has no Docker daemon available).
-- **A reverse proxy config**: `infrastructure/docker/Caddyfile` (local) —
-  a production `Caddyfile.staging` (with a real domain and automatic
-  HTTPS) is referenced by the staging compose example but doesn't exist
-  yet, since there's no domain to point it at.
+## 1. Server
 
-## What's missing before any real deploy
+- Ubuntu 22.04+ (or any Linux with Docker Engine 24+ and the Compose plugin), 2 vCPU / 4 GB RAM minimum.
+- Ports 80 and 443 open. A DNS `A` (and `AAAA`) record for your app domain pointing at the server.
+- Clone the repo onto the server (or copy a release tarball).
 
-1. **A target to deploy to.** No cloud account, VM, or PaaS is provisioned.
-   `infrastructure/terraform/` and `infrastructure/cloudflare/` are
-   README placeholders, not IaC — see
-   [future-modules.md](./future-modules.md#terraform--kubernetes).
-2. **A container registry** to push the built images to, and the
-   corresponding `push: true` + registry auth in `ci.yml`'s
-   `docker-build` job (currently `push: false, load: true` — it only
-   proves the image builds).
-3. **A GitHub remote.** Git is local-only for this project by deliberate
-   choice so far — `.github/workflows/*.yml` are written and pass the
-   equivalent commands locally (`pnpm turbo run lint typecheck test
-   build`), but neither workflow has ever actually executed on GitHub's
-   runners, because there's no remote for GitHub Actions to run against.
-4. **Real secrets** in whatever CI/CD or hosting platform is chosen —
-   `BETTER_AUTH_SECRET`, `DATABASE_URL`, `REDIS_URL`, SMTP credentials —
-   distinct from the CI-only placeholder values in `ci.yml`'s `env:`
-   block and the real (but locally-`.env`-only, never committed) Neon/
-   Upstash credentials this environment develops against.
-5. **Container image scanning** (Trivy/Snyk) — commented out in `ci.yml`'s
-   `security-scan` job pending a registry to scan images in.
+## 2. Configure
 
-## Recommended order, when this becomes real
+```bash
+cd infrastructure/docker
+cp .env.production.example .env.production
+chmod 600 .env.production
+```
 
-1. Push this repo to a GitHub remote; confirm `ci.yml` and `e2e.yml` run
-   and pass on GitHub's runners (their equivalents already pass locally,
-   but "the YAML is well-formed" and "it actually runs green on GitHub's
-   infrastructure" are different claims — verify the second before
-   trusting it).
-2. Provision a target (a single small VM running the staging compose file
-   is enough to start — no need for Kubernetes at this scale) and a
-   container registry.
-3. Wire real secrets into GitHub Actions, flip `docker-build` to push,
-   and turn the `deploy` job's `if: false` into a real deploy step.
-4. Enable virtualization in this environment's BIOS (or develop from a
-   machine that already has it) to get local Docker Desktop working, so
-   the compose stack itself — not just its equivalent processes — gets
-   exercised before every deploy, not only in CI.
+Fill in every value. Generate secrets with `openssl rand -base64 48`:
+
+| Variable | Notes |
+|---|---|
+| `DOMAIN`, `ACME_EMAIL` | App domain and the email Let's Encrypt uses. |
+| `POSTGRES_PASSWORD`, `REDIS_PASSWORD` | Random. `DATABASE_URL` / `REDIS_URL` reference them. |
+| `JWT_SECRET` | ≥ 32 random characters. Rotating it signs everyone out. |
+| `ENCRYPTION_KEY` | ≥ 32 random characters, different from `JWT_SECRET`. **Back it up** — it decrypts stored Google service-account keys. Losing it means re-adding them. |
+| `SMTP_*` | A real SMTP relay (verification codes and notifications depend on it). |
+| `AAMARPAY_*` | Optional card payments. Leave the IDs empty to hide card checkout. |
+| `SEED_SUPERADMIN_EMAIL`, `SEED_PASSWORD` | First superadmin (≥ 12 character password). Used once. |
+
+The API refuses to start in production with weak or placeholder secrets, a
+non-https `CORS_ORIGIN`, or missing settings, and prints exactly what is wrong.
+
+## 3. First deploy
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production build
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+docker compose -f docker-compose.prod.yml --env-file .env.production --profile seed run --rm seed
+```
+
+`up` runs database migrations first (the one-shot `migrate` service); the API
+and worker only start after migrations succeed. Check:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production ps     # all healthy
+curl https://$DOMAIN/api/v1/health/ready                                    # {"status":"ok","database":true,"redis":true}
+```
+
+Then sign in as the superadmin and:
+
+1. **Indexing providers → Google**: add at least one Google Cloud service account (JSON key) with the
+   Web Search Indexing API enabled. Until one exists, clients can only submit to the free IndexNow engines.
+2. **Payment methods / credit packs**: review the seeded defaults.
+3. **Staff & roles**: invite managers.
+4. **Tickets → SLA & automation**: set business hours, holidays and SLA targets.
+
+Clients add the service-account email as an **Owner** of their site in Google Search Console
+(the Sites page shows the address and steps). Google rejects submissions otherwise; those
+credits are refunded automatically.
+
+## 4. Updating
+
+```bash
+git pull
+docker compose -f docker-compose.prod.yml --env-file .env.production build
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+```
+
+Migrations run automatically before the new API starts. The API and worker
+shut down gracefully on SIGTERM (in-flight jobs finish; unfinished batches are
+re-picked by the worker's 5-minute sweeper).
+
+## 5. Operations
+
+- **Backups**: `docker compose exec postgres pg_dump -U foxindex foxindex | gzip > backup-$(date +%F).sql.gz` —
+  schedule it daily and copy off the server. Also back up the `uploads` volume (ticket/chat attachments)
+  and `.env.production`.
+- **Logs**: JSON to stdout, rotated by Docker (20 MB × 5 per service). `docker compose logs -f api worker-submission`.
+- **Health**: `/api/v1/health` (liveness) and `/api/v1/health/ready` (database + Redis). Containers have
+  health checks; the worker writes a heartbeat file every 15 s.
+- **Scaling**: the worker scales horizontally (`--scale worker-submission=3`). The API can scale too once
+  attachments move to shared storage (the `uploads` volume is per-server). socket.io already uses the Redis
+  adapter, so realtime works across API replicas.
+- **Managed Postgres/Redis**: point `DATABASE_URL`/`REDIS_URL` at them, set `DATABASE_SSL=true`, and remove
+  the `postgres`/`redis` services. Redis **must** use `maxmemory-policy noeviction` (BullMQ requirement).
+- **API docs**: Swagger is off in production; set `API_DOCS_ENABLED=true` to expose `/api/docs`.
+
+## What runs where
+
+| Service | Purpose |
+|---|---|
+| `caddy` | TLS (Let's Encrypt), routes `/api/*` and `/socket.io/*` to the API, everything else to web |
+| `web` | Next.js standalone server |
+| `api` | REST API, public API (`/api/v1/urls`, `/sites`), websockets, ticket SLA automation (BullMQ scheduler) |
+| `worker-submission` | Sends batches to Google Indexing API and IndexNow, refunds failed Google submissions, re-enqueues stuck batches |
+| `migrate` / `seed` | One-shot jobs |
+| `postgres`, `redis` | Data (volumes `postgres-data`, `redis-data`) |
+
+## Known limits
+
+- URL index status is "submitted/accepted", not "indexed": confirming Google indexation needs Search Console
+  URL Inspection per client property (not built yet).
+- WhatsApp notifications need a provider account (Meta Cloud API / Twilio); email and in-app work.
+- Password reset by email is not built yet.

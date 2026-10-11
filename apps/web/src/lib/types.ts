@@ -1,38 +1,11 @@
-export interface Organization {
-  id: string;
-  name: string;
-  slug: string;
-  role?: string;
-  createdAt: string;
-}
-
 export interface Project {
   id: string;
-  organizationId: string;
+  userId: string;
   name: string;
   slug: string;
-  createdAt: string;
-}
-
-export interface Domain {
-  id: string;
-  projectId: string;
-  hostname: string;
   indexnowKey: string;
-  keyFileUrl: string;
-  verificationStatus: 'PENDING' | 'VERIFIED' | 'FAILED';
-  verifiedAt: string | null;
   createdAt: string;
-}
-
-export interface DomainVerificationAttempt {
-  id: string;
-  method: string;
-  status: string;
-  checkedUrl: string;
-  httpStatusCode: number | null;
-  failureReason: string | null;
-  attemptedAt: string;
+  updatedAt: string;
 }
 
 export interface UrlSubmission {
@@ -63,16 +36,38 @@ export interface SubmitUrlsResult {
   rejected: { url: string; reason: string; message: string }[];
 }
 
-export interface CreditLedgerEntry {
+export interface CreditTransaction {
   id: string;
-  organizationId: string;
-  delta: number;
-  reason: string;
-  metadata: Record<string, unknown> | null;
+  userId: string;
+  amount: number;
+  type: 'signup_bonus' | 'manual_add' | 'submission_deduct' | 'refund' | 'payment_credit';
+  performedBy: string | null;
+  referenceId: string | null;
+  note: string | null;
   createdAt: string;
 }
 
 export interface CreditBalance {
   balance: number;
-  recentLedger: CreditLedgerEntry[];
+  recentTransactions: CreditTransaction[];
+}
+
+export type UserRole = 'client' | 'manager' | 'admin' | 'superadmin';
+export type UserStatus = 'pending_email' | 'pending_approval' | 'active' | 'suspended';
+
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  status: UserStatus;
+  assignedManagerId: string | null;
+  creditBalanceCached: number;
+  createdAt: string;
+}
+
+export interface Manager {
+  id: string;
+  name: string;
+  email: string;
 }

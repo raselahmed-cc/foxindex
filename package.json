@@ -17,8 +17,7 @@
     "format:check": "prettier --check .",
     "db:generate": "pnpm --filter @foxindex/database db:generate",
     "db:migrate": "pnpm --filter @foxindex/database db:migrate",
-    "auth:generate": "pnpm --filter @foxindex/auth auth:generate",
-    "credits:grant": "pnpm --filter @foxindex/database grant-credits"
+    "db:seed": "pnpm --filter @foxindex/database db:seed"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

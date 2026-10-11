@@ -5,13 +5,15 @@ node_modules/
 # build outputs
 dist/
 .next/
+.next-prod/
 .turbo/
 *.tsbuildinfo
 
 # env
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!.env.production.example
 
 # logs
 *.log
@@ -32,3 +34,6 @@ Thumbs.db
 
 # docker
 infrastructure/docker/volumes/
+
+# runtime data (ticket/chat attachments)
+apps/api/uploads/

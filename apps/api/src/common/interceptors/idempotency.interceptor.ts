@@ -9,7 +9,7 @@ import { catchError, from, of, switchMap, tap, type Observable } from 'rxjs';
 import type { IdempotencyCache } from '@foxindex/queue';
 import { RateLimitedError } from '../errors/app-error';
 import { IDEMPOTENCY_CACHE } from '../idempotency/idempotency-cache.provider';
-import type { TenantContextRequest } from '../guards/tenant-context.guard';
+import type { CallerRequest } from '../guards/caller-request';
 
 const HEADER = 'idempotency-key';
 
@@ -18,9 +18,13 @@ const HEADER = 'idempotency-key';
  * a client retry that reuses the same key either proceeds (first attempt),
  * gets told to back off (a concurrent attempt is still running), or gets the
  * exact prior response replayed, never a second side effect. Must run after
- * TenantContextGuard (needs request.tenant.organizationId) — guards always
- * complete before any interceptor in Nest's request lifecycle, so ordering is
- * automatic regardless of decorator placement.
+ * AuthGuard/ApiKeyGuard (needs request.user or request.apiKey) —
+ * guards always complete before any interceptor in Nest's request lifecycle,
+ * so ordering is automatic regardless of decorator placement.
+ *
+ * Scoped by user id for a session caller, or by the API key's own project id
+ * (docs/adr/0013 — an API key doesn't carry a user id directly, and its
+ * project id is a stable per-caller identifier for this purpose too).
  *
  * Observes the RAW (pre-envelope) return value from the handler: this
  * interceptor is method-scoped, while ResponseEnvelopeInterceptor is global
@@ -34,16 +38,15 @@ export class IdempotencyInterceptor implements NestInterceptor {
   constructor(@Inject(IDEMPOTENCY_CACHE) private readonly cache: IdempotencyCache) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const request = context.switchToHttp().getRequest<TenantContextRequest>();
+    const request = context.switchToHttp().getRequest<CallerRequest>();
     const idempotencyKey = request.headers[HEADER];
+    const scopeId = request.user?.id ?? request.apiKey?.userId;
 
-    if (!idempotencyKey || typeof idempotencyKey !== 'string' || !request.tenant) {
+    if (!idempotencyKey || typeof idempotencyKey !== 'string' || !scopeId) {
       return next.handle();
     }
 
-    const organizationId = request.tenant.organizationId;
-
-    return from(this.cache.begin(organizationId, idempotencyKey)).pipe(
+    return from(this.cache.begin(scopeId, idempotencyKey)).pipe(
       switchMap((begin) => {
         if (begin.status === 'cached') {
           return of(begin.response);
@@ -55,10 +58,10 @@ export class IdempotencyInterceptor implements NestInterceptor {
         }
         return next.handle().pipe(
           tap((response) => {
-            void this.cache.complete(organizationId, idempotencyKey, response);
+            void this.cache.complete(scopeId, idempotencyKey, response);
           }),
           catchError((error: unknown) => {
-            void this.cache.release(organizationId, idempotencyKey);
+            void this.cache.release(scopeId, idempotencyKey);
             throw error;
           }),
         );

@@ -1,5 +1,11 @@
 # 0003: Domain verification is a real BullMQ queue, not an inline API call
 
+> **Superseded by [ADR 0013](./0013-flatten-to-project-single-indexnow-key.md).**
+> The `domains`/`domain_verifications` model and `workers/verification`
+> described below no longer exist — a project now has one IndexNow key,
+> generated at creation, with no separate verification step. Kept as
+> historical record of the reasoning at the time.
+
 ## Status
 
 Accepted.

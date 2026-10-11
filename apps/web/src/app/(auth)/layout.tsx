@@ -1,12 +1,11 @@
 import type { ReactNode } from 'react';
 
+/**
+ * Pass-through — each auth screen owns its full page layout now (login has
+ * its own split design; signup and verify-email share its tokens). A
+ * shared wrapper here would force every screen into the same shape, which
+ * stopped being true once login got its own design.
+ */
 export default function AuthLayout({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-muted px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-6 text-center text-xl font-semibold">FoxIndex</div>
-        {children}
-      </div>
-    </div>
-  );
+  return children;
 }

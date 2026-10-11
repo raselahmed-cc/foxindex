@@ -1,0 +1,25 @@
+import { pgTable, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
+import { SubmissionProvider } from '@foxindex/types';
+import { user } from './auth';
+import { submissionProviderEnum } from './enums';
+
+/**
+ * Super-Admin-managed runtime override for a provider's config (docs/adr/0013)
+ * — IndexNow is the only real provider; this is genuine infrastructure for
+ * whenever a second one exists (e.g. Google Search Console, Phase 2), not a
+ * promise of providers that don't exist. `apiBaseUrl` null means "use the
+ * env var / built-in default" (packages/config's DEFAULT_INDEXNOW_API_BASE_URL) —
+ * this table only ever narrows/overrides, never replaces that fallback chain.
+ */
+export const providerSettings = pgTable(
+  'provider_settings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    provider: submissionProviderEnum('provider').notNull().default(SubmissionProvider.INDEXNOW),
+    apiBaseUrl: varchar('api_base_url', { length: 500 }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('provider_settings_provider_unique').on(table.provider)],
+);
