@@ -6,8 +6,8 @@ WORKDIR /app
 COPY . .
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @foxindex/api... build && pnpm --filter @foxindex/database build
-# Drop devDependencies from the tree that ships.
-RUN CI=true pnpm prune --prod
+# Re-link only production dependencies (pnpm prune does not work per-package in a workspace).
+RUN CI=true pnpm install --prod --frozen-lockfile --offline
 
 FROM node:22-alpine AS runtime
 RUN apk add --no-cache tini wget

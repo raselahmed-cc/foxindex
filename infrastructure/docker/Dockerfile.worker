@@ -6,7 +6,7 @@ COPY . .
 RUN pnpm install --frozen-lockfile
 ARG WORKER_NAME=submission
 RUN pnpm --filter @foxindex/worker-${WORKER_NAME}... build
-RUN CI=true pnpm prune --prod
+RUN CI=true pnpm install --prod --frozen-lockfile --offline
 
 FROM node:22-alpine AS runtime
 RUN apk add --no-cache tini
