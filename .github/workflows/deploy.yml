@@ -1,0 +1,48 @@
+name: Deploy
+
+# local → git push → GitHub → CI → this job → server (/opt/foxindex/infrastructure/scripts/deploy.sh)
+#
+# Repository secrets (Settings → Secrets and variables → Actions):
+#   DEPLOY_HOST     server address, e.g. 147.93.183.136
+#   DEPLOY_USER     SSH user (root)
+#   DEPLOY_SSH_KEY  private key whose public half is in the server's authorized_keys
+#                   (restricted there to running deploy.sh only)
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Only ship commits whose CI run passed (or a manual run).
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Check deploy secrets
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          if [ -z "$HOST" ] || [ -z "$KEY" ]; then
+            echo "::error::Add DEPLOY_HOST, DEPLOY_USER and DEPLOY_SSH_KEY repository secrets to enable deploys."
+            exit 1
+          fi
+      - name: Deploy over SSH
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          # The server's authorized_keys forces this key to run deploy.sh, whatever command is sent.
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes "${USER:-root}@$HOST" deploy

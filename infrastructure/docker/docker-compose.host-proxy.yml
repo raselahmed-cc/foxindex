@@ -1,0 +1,20 @@
+# Override for servers that already run a reverse proxy (e.g. a host-level Caddy
+# or nginx serving other sites on 80/443). The bundled Caddy is disabled and the
+# app is published on localhost only; point your proxy at:
+#   https://$DOMAIN/api/*, /socket.io/*  → 127.0.0.1:${API_HOST_PORT}
+#   everything else                      → 127.0.0.1:${WEB_HOST_PORT}
+#
+#   docker compose -p foxindex -f docker-compose.prod.yml -f docker-compose.host-proxy.yml --env-file .env.production up -d
+
+services:
+  caddy:
+    # Not started unless explicitly requested with --profile bundled-proxy.
+    profiles: ['bundled-proxy']
+
+  api:
+    ports:
+      - '127.0.0.1:${API_HOST_PORT:-3311}:3001'
+
+  web:
+    ports:
+      - '127.0.0.1:${WEB_HOST_PORT:-3310}:3000'
