@@ -42,7 +42,7 @@ export default function LoginPage() {
     try {
       const result = await apiClient.post<LoginResponse>('/auth/login', { email: normalizedEmail, password, remember });
       setAccessToken(result.accessToken);
-      router.push('/');
+      router.push('/dashboard');
     } catch (e) {
       setError(
         e instanceof ApiError
@@ -60,7 +60,7 @@ export default function LoginPage() {
       <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-auth-line bg-auth-bg2 p-11 md:flex">
         <div className="pointer-events-none absolute -right-52 -bottom-72 h-[620px] w-[620px] rounded-full bg-[radial-gradient(closest-side,rgba(242,140,59,.10),transparent_70%)]" />
 
-        <a href="#" className="flex items-center gap-2.5 text-[17px] font-semibold tracking-tight">
+        <a href="/" className="flex items-center gap-2.5 text-[17px] font-semibold tracking-tight">
           <FoxLogo className="h-7 w-7" />
           FoxIndex
         </a>
@@ -129,7 +129,7 @@ export default function LoginPage() {
       {/* Right: form */}
       <main className="flex items-center justify-center px-6 py-10">
         <div className="w-full max-w-[400px]">
-          <a href="#" className="mb-7 flex items-center gap-2.5 text-[17px] font-semibold tracking-tight md:hidden">
+          <a href="/" className="mb-7 flex items-center gap-2.5 text-[17px] font-semibold tracking-tight md:hidden">
             <FoxLogo className="h-7 w-7" />
             FoxIndex
           </a>

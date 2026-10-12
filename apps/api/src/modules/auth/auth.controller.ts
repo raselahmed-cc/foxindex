@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, Inject, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res, UseGuards } from '@nestjs/common';
 import type { CookieOptions, Request, Response } from 'express';
 import {
   loginSchema,
@@ -91,6 +91,13 @@ export class AuthController {
     const result = await this.auth.refresh(token, { userAgent: req.headers['user-agent'], ip: req.ip });
     setRefreshCookie(res, result.refreshToken, (req.cookies as Record<string, string> | undefined)?.[SESSION_ONLY_COOKIE] === '1');
     return { accessToken: result.accessToken };
+  }
+
+  /** Is this browser signed in? (httpOnly cookie, so the page can't tell by itself.) */
+  @Get('session')
+  async session(@Req() req: Request) {
+    const token = (req.cookies as Record<string, string> | undefined)?.[REFRESH_COOKIE_NAME];
+    return { signedIn: token ? await this.auth.hasSession(token) : false };
   }
 
   @Post('logout')

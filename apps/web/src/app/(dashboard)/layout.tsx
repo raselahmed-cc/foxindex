@@ -108,7 +108,7 @@ function Shell({ children, role, name, userId, onSignOut }: { children: ReactNod
     <NavContext.Provider value={nav}>
       <div className="grid min-h-screen grid-cols-1 bg-auth-bg text-auth-text md:grid-cols-[236px_1fr]">
         <aside className="sticky top-0 hidden h-screen flex-col overflow-y-auto border-r border-auth-line bg-auth-bg2 p-3 md:flex">
-          <Link href={isClient ? '/' : role === 'manager' ? '/admin/users' : '/admin'} className="flex items-center gap-2.5 px-2 pt-1.5 pb-4.5 text-base font-semibold">
+          <Link href={isClient ? '/dashboard' : role === 'manager' ? '/admin/users' : '/admin'} className="flex items-center gap-2.5 px-2 pt-1.5 pb-4.5 text-base font-semibold">
             <FoxLogo className="h-6.5 w-6.5 flex-shrink-0" />
             FoxIndex
             {rolePill && <Pill tone={rolePill.tone} className="ml-0.5">{rolePill.label}</Pill>}
@@ -166,9 +166,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   // Route guard: staff-only areas for staff, client-only areas for clients. The API enforces this too.
   useEffect(() => {
     if (!user) return;
-    if (role === 'client' && pathname.startsWith('/admin')) router.replace('/');
+    if (role === 'client' && pathname.startsWith('/admin')) router.replace('/dashboard');
     else if (role === 'manager' && pathname === '/admin') router.replace('/admin/users');
-    else if (role !== 'client' && pathname === '/') router.replace(role === 'manager' ? '/admin/users' : '/admin');
+    else if (role !== 'client' && pathname === '/dashboard') router.replace(role === 'manager' ? '/admin/users' : '/admin');
   }, [user, role, pathname, router]);
 
   if (loading) {

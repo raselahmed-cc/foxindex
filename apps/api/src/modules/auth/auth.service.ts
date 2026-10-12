@@ -312,6 +312,15 @@ export class AuthService {
     return tokens;
   }
 
+  /** Read-only check used by the marketing site — never rotates the token. */
+  async hasSession(refreshToken: string): Promise<boolean> {
+    const session = await this.db.query.sessions.findFirst({
+      where: and(eq(sessions.refreshTokenHash, hashRefreshToken(refreshToken)), isNull(sessions.revokedAt), gt(sessions.expiresAt, new Date())),
+      columns: { id: true },
+    });
+    return Boolean(session);
+  }
+
   async logout(refreshToken: string): Promise<void> {
     const tokenHash = hashRefreshToken(refreshToken);
     await this.db.update(sessions).set({ revokedAt: new Date() }).where(eq(sessions.refreshTokenHash, tokenHash));

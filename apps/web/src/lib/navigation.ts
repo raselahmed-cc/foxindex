@@ -22,7 +22,7 @@ export function navFor(role: Role): NavGroup[] {
     return [
       {
         items: [
-          { href: '/', label: 'Overview', icon: 'grid' },
+          { href: '/dashboard', label: 'Overview', icon: 'grid' },
           { href: '/submit', label: 'Submit URLs', short: 'Submit', icon: 'upload' },
           { href: '/urls', label: 'All URLs', short: 'URLs', icon: 'list' },
           { href: '/sites', label: 'Sites', icon: 'globe' },
@@ -108,6 +108,6 @@ export function navFor(role: Role): NavGroup[] {
 
 export function isActivePath(pathname: string, href: string): boolean {
   // Section roots whose sub-pages have their own nav entries match exactly.
-  if (href === '/' || href === '/admin' || href === '/tickets') return pathname === href;
+  if (href === '/dashboard' || href === '/admin' || href === '/tickets') return pathname === href;
   return pathname === href || pathname.startsWith(`${href}/`);
 }

@@ -167,7 +167,7 @@ export default function SignupPage() {
       <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-auth-line bg-auth-bg2 p-11 md:flex">
         <div className="pointer-events-none absolute -right-52 -bottom-72 h-[620px] w-[620px] rounded-full bg-[radial-gradient(closest-side,rgba(242,140,59,.10),transparent_70%)]" />
 
-        <Link href="/login" className="flex items-center gap-2.5 text-[17px] font-semibold tracking-tight">
+        <Link href="/" className="flex items-center gap-2.5 text-[17px] font-semibold tracking-tight">
           <FoxLogo className="h-7 w-7" />
           FoxIndex
         </Link>
@@ -214,7 +214,7 @@ export default function SignupPage() {
       {/* Right: form */}
       <main className="flex items-center justify-center px-6 py-10">
         <div className="w-full max-w-[460px]">
-          <Link href="/login" className="mb-7 flex items-center gap-2.5 text-[17px] font-semibold tracking-tight md:hidden">
+          <Link href="/" className="mb-7 flex items-center gap-2.5 text-[17px] font-semibold tracking-tight md:hidden">
             <FoxLogo className="h-7 w-7" />
             FoxIndex
           </Link>
