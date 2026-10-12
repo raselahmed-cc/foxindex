@@ -27,15 +27,19 @@ function Steps({ step }: { step: 2 | 3 }) {
 }
 
 function VerifyEmailForm() {
-  const initialEmail = useSearchParams().get('email') ?? '';
+  const params = useSearchParams();
+  const initialEmail = params.get('email') ?? '';
+  const mailFailed = params.get('mail') === 'failed';
   const [email, setEmail] = useState(initialEmail);
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [mailError] = useState(mailFailed);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
-  const [verified, setVerified] = useState<null | 'pending_approval' | 'active'>(null);
+  // done=1: this server has no email step, so signup went straight to manager approval.
+  const [verified, setVerified] = useState<null | 'pending_approval' | 'active'>(params.get('done') === '1' ? 'pending_approval' : null);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -92,7 +96,7 @@ function VerifyEmailForm() {
           <>
             <Steps step={3} />
             <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-full bg-auth-ok-soft text-lg text-auth-ok" aria-hidden="true">✓</div>
-            <h1 className="mb-1.5 text-[26px] font-semibold tracking-tight">Email verified</h1>
+            <h1 className="mb-1.5 text-[26px] font-semibold tracking-tight">{params.get('done') === '1' ? 'Account created' : 'Email verified'}</h1>
             {verified === 'active' ? (
               <p className="mb-6.5 text-auth-text2">Your account is already active. You can log in now.</p>
             ) : (
@@ -125,6 +129,11 @@ function VerifyEmailForm() {
               )}
             </p>
 
+            {mailError && !error && !notice && (
+              <div role="status" className="mb-4.5 rounded-md border border-auth-warn/30 bg-auth-warn-soft px-3 py-2.5 text-[13.5px] text-auth-warn">
+                Your account was created, but we couldn&apos;t send the code just now. Use <b className="font-medium">send a new code</b> below in a minute.
+              </div>
+            )}
             {error && (
               <div role="alert" className="mb-4.5 rounded-md border border-auth-bad/30 bg-auth-bad-soft px-3 py-2.5 text-[13.5px] text-auth-bad">
                 {error}

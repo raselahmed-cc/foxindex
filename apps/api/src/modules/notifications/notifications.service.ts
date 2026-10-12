@@ -8,7 +8,7 @@ import { DATABASE } from '../../database/database.module';
 import { REDIS_CONNECTION } from '../../redis/redis.module';
 import { RealtimeService } from '../../common/realtime/realtime.service';
 import { onlineUsers } from '../../common/realtime/presence';
-import { MAILER } from '../auth/mailer.provider';
+import { MAILER, smtpConfigured } from '../auth/mailer.provider';
 
 type PreferenceEvent = (typeof NOTIFICATION_EVENTS)[number];
 
@@ -73,7 +73,7 @@ export class NotificationsService {
       this.realtime.emitToUser(user.id, 'notification:new', { id: row.id, type: input.type, ...payload, createdAt: row.createdAt, readAt: null });
     }
 
-    if (channels.email) {
+    if (channels.email && smtpConfigured()) {
       if (input.emailOnlyIfOffline && (await this.isOnline(user.id))) return;
       if (input.emailDedupe) {
         const fresh = await this.redis.set(`notify:${input.emailDedupe.key}:${user.id}`, '1', 'EX', input.emailDedupe.seconds, 'NX');

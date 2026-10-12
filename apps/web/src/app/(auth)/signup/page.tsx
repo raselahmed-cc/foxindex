@@ -147,8 +147,12 @@ export default function SignupPage() {
 
     setLoading(true);
     try {
-      await apiClient.post('/auth/register', { name, dateOfBirth, email: normalizedEmail, phone: fullPhone, whatsapp: fullWhatsapp, city, country, password });
-      router.push(`/verify-email?email=${encodeURIComponent(normalizedEmail)}`);
+      const r = await apiClient.post<{ verification: 'sent' | 'failed' | 'skipped' }>('/auth/register', { name, dateOfBirth, email: normalizedEmail, phone: fullPhone, whatsapp: fullWhatsapp, city, country, password });
+      const next = new URLSearchParams({ email: normalizedEmail });
+      // skipped = no email step on this server (straight to approval); failed = account exists, resend the code.
+      if (r.verification === 'skipped') next.set('done', '1');
+      if (r.verification === 'failed') next.set('mail', 'failed');
+      router.push(`/verify-email?${next.toString()}`);
     } catch (e) {
       if (e instanceof ApiError) {
         setError(e.message);

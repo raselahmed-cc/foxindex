@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { and, desc, eq, gt, isNull } from 'drizzle-orm';
 import {
@@ -31,7 +31,7 @@ import { ErrorCode, UserRole, UserStatus } from '@foxindex/types';
 import { AppError, AuthenticationError, NotFoundError, RateLimitedError, ValidationError } from '../../common/errors/app-error';
 import { REDIS_CONNECTION } from '../../redis/redis.module';
 import { DATABASE } from '../../database/database.module';
-import { MAILER } from './mailer.provider';
+import { MAILER, smtpConfigured } from './mailer.provider';
 import { AuditLogService } from '../audit-logs/audit-log.service';
 import { CreditsRepository } from '../credits/credits.repository';
 
@@ -49,6 +49,8 @@ export interface RequestMeta {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     @Inject(MAILER) private readonly mailer: Mailer,
@@ -58,7 +60,22 @@ export class AuthService {
     @Inject(REDIS_CONNECTION) private readonly redis: IORedis,
   ) {}
 
-  async register(input: RegisterInput): Promise<{ email: string }> {
+  /** Email is best-effort here: a mail outage must never fail signup, approval or verification. */
+  private async safeSend(to: string, subject: string, html: string): Promise<boolean> {
+    try {
+      await this.mailer.send(to, subject, html);
+      return true;
+    } catch (error) {
+      this.logger.warn(`email to ${to} failed (${subject}): ${(error as Error).message}`);
+      return false;
+    }
+  }
+
+  /**
+   * `verification`: "sent" — check your inbox; "failed" — account created, use Resend;
+   * "skipped" — no SMTP configured, so the account went straight to manager approval.
+   */
+  async register(input: RegisterInput): Promise<{ email: string; verification: 'sent' | 'failed' | 'skipped' }> {
     const existing = await this.db.query.users.findFirst({ where: eq(users.email, input.email) });
     if (existing?.status === UserStatus.PENDING_EMAIL) {
       // Signed up before but never verified — point them at the code, don't dead-end.
@@ -73,6 +90,10 @@ export class AuthService {
     }
 
     const passwordHash = await hashPassword(input.password);
+    const verifyByEmail = smtpConfigured();
+    // Without email, a manager reviewing the account is the gate — assign one now.
+    const manager = verifyByEmail ? null : await findLeastLoadedManager(this.db);
+    const code = generateVerificationCode();
 
     const user = await this.db.transaction(async (tx) => {
       const [created] = await tx
@@ -87,29 +108,37 @@ export class AuthService {
           city: input.city,
           country: input.country,
           role: UserRole.CLIENT,
-          status: UserStatus.PENDING_EMAIL,
+          status: verifyByEmail ? UserStatus.PENDING_EMAIL : UserStatus.PENDING_APPROVAL,
+          assignedManagerId: manager?.id ?? null,
         })
         .returning();
 
-      const code = generateVerificationCode();
-      await tx.insert(emailVerificationCodes).values({
-        userId: created.id,
-        code,
-        expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_CODE_TTL_MINUTES * 60_000),
-      });
+      if (verifyByEmail) {
+        await tx.insert(emailVerificationCodes).values({
+          userId: created.id,
+          code,
+          expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_CODE_TTL_MINUTES * 60_000),
+        });
+      }
 
       await this.auditLog.record(
-        { actorId: created.id, action: 'user.registered', targetType: 'user', targetId: created.id },
+        {
+          actorId: created.id,
+          action: 'user.registered',
+          targetType: 'user',
+          targetId: created.id,
+          metadata: { emailVerification: verifyByEmail ? 'code' : 'skipped_no_smtp', managerId: manager?.id ?? null },
+        },
         tx,
       );
-
-      const email = verificationCodeEmail(code);
-      await this.mailer.send(created.email, email.subject, email.html);
-
       return created;
     });
 
-    return { email: user.email };
+    if (!verifyByEmail) return { email: user.email, verification: 'skipped' };
+    // Sent after commit: a mail failure leaves a valid account the user can finish with "Resend code".
+    const email = verificationCodeEmail(code);
+    const sent = await this.safeSend(user.email, email.subject, email.html);
+    return { email: user.email, verification: sent ? 'sent' : 'failed' };
   }
 
   /**
@@ -138,7 +167,10 @@ export class AuthService {
       });
       await this.redis.del(`auth:code-attempts:${input.email}`);
       const email = verificationCodeEmail(code);
-      await this.mailer.send(user.email, email.subject, email.html);
+      if (!(await this.safeSend(user.email, email.subject, email.html))) {
+        await this.redis.del(`auth:resend:${input.email}`);
+        throw new AppError(ErrorCode.PROVIDER_ERROR, "We couldn't send the email right now. Please try again in a few minutes.", { reason: 'EMAIL_UNAVAILABLE' });
+      }
     }
     return { ok: true, cooldownSeconds: RESEND_COOLDOWN_SECONDS };
   }
@@ -215,7 +247,7 @@ export class AuthService {
       const managerUser = await this.db.query.users.findFirst({ where: eq(users.id, manager.id) });
       if (managerUser) {
         const email = managerAssignedEmail(user.name, user.email);
-        await this.mailer.send(managerUser.email, email.subject, email.html);
+        await this.safeSend(managerUser.email, email.subject, email.html);
         // WhatsApp: Phase 1 only has wa.me deep links (CLAUDE.md), which need a
         // human to click them — there is no Meta Cloud API credential to push
         // this automatically yet, so only the email leg is actually delivered.
@@ -250,7 +282,7 @@ export class AuthService {
     });
 
     const email = accountApprovedEmail(target.name);
-    await this.mailer.send(target.email, email.subject, email.html);
+    await this.safeSend(target.email, email.subject, email.html);
   }
 
   async login(input: LoginInput, meta: RequestMeta): Promise<{ accessToken: string; refreshToken: string; user: PublicUser }> {
