@@ -62,9 +62,11 @@ function PhoneField({
   value,
   onValue,
   error,
+  placeholder = 'Enter phone number',
 }: {
   id: string;
   label: string;
+  placeholder?: string;
   hint?: ReactNode;
   dial: string;
   onDial: (v: string) => void;
@@ -91,7 +93,7 @@ function PhoneField({
           required
           autoComplete="tel-national"
           inputMode="tel"
-          placeholder="1712 345 678"
+          placeholder={placeholder}
           value={value}
           aria-invalid={Boolean(error)}
           aria-describedby={hint || error ? `${id}-hint` : undefined}
@@ -259,7 +261,7 @@ export default function SignupPage() {
             <div className="mb-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
               <div>
                 <label htmlFor="name" className="mb-1.5 block text-[13px] text-auth-text2">Full name</label>
-                <input id="name" required minLength={2} autoComplete="name" placeholder="Rasel Ahmed" value={name} onChange={(e) => setName(e.target.value)} className={FIELD} />
+                <input id="name" required minLength={2} autoComplete="name" placeholder="Enter your full name" value={name} onChange={(e) => setName(e.target.value)} className={FIELD} />
               </div>
               <div>
                 <label htmlFor="dob" className="mb-1.5 block text-[13px] text-auth-text2">Date of birth</label>
@@ -269,11 +271,11 @@ export default function SignupPage() {
 
             <div className="mb-4">
               <label htmlFor="email" className="mb-1.5 block text-[13px] text-auth-text2">Email</label>
-              <input id="email" type="email" required autoComplete="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} className={FIELD} />
+              <input id="email" type="email" required autoComplete="email" placeholder="name@company.com" value={email} onChange={(e) => setEmail(e.target.value)} className={FIELD} />
             </div>
 
             <div className="mb-4 grid gap-3">
-              <PhoneField id="phone" label="Mobile number" dial={dialCode} onDial={setDialCode} value={phone} onValue={setPhone} error={fieldErrors.phone} />
+              <PhoneField id="phone" label="Mobile number" placeholder="Enter mobile number" dial={dialCode} onDial={setDialCode} value={phone} onValue={setPhone} error={fieldErrors.phone} />
               <label className="flex items-center gap-2 text-[13px] text-auth-text2">
                 <input type="checkbox" checked={waSame} onChange={(e) => setWaSame(e.target.checked)} className="h-4 w-4 accent-auth-accent" />
                 My WhatsApp number is the same as my mobile number
@@ -284,6 +286,7 @@ export default function SignupPage() {
                 <PhoneField
                   id="whatsapp"
                   label="WhatsApp number"
+                  placeholder="Enter WhatsApp number"
                   hint="Your manager contacts you here for approval and support."
                   dial={waDial}
                   onDial={setWaDial}
@@ -306,7 +309,7 @@ export default function SignupPage() {
               </div>
               <div>
                 <label htmlFor="city" className="mb-1.5 block text-[13px] text-auth-text2">City</label>
-                <input id="city" required autoComplete="address-level2" placeholder="Dhaka" value={city} onChange={(e) => setCity(e.target.value)} className={FIELD} />
+                <input id="city" required autoComplete="address-level2" placeholder="Enter your city" value={city} onChange={(e) => setCity(e.target.value)} className={FIELD} />
               </div>
             </div>
 
@@ -319,7 +322,7 @@ export default function SignupPage() {
                   required
                   minLength={8}
                   autoComplete="new-password"
-                  placeholder="At least 8 characters"
+                  placeholder="Create a password (min. 8 characters)"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className={`${FIELD} pr-14`}

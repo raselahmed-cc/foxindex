@@ -149,7 +149,7 @@ function VerifyEmailForm() {
               {!initialEmail && (
                 <div className="mb-4">
                   <label htmlFor="email" className="mb-1.5 block text-[13px] text-auth-text2">Email</label>
-                  <input id="email" type="email" required autoComplete="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} className={FIELD} />
+                  <input id="email" type="email" required autoComplete="email" placeholder="name@company.com" value={email} onChange={(e) => setEmail(e.target.value)} className={FIELD} />
                 </div>
               )}
               <div className="mb-5">
@@ -162,10 +162,10 @@ function VerifyEmailForm() {
                   maxLength={6}
                   required
                   autoFocus
-                  placeholder="123456"
+                  placeholder="Enter 6-digit code"
                   value={code}
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className={`${FIELD} text-center font-mono text-xl tracking-[0.5em]`}
+                  className={`${FIELD} text-center font-mono text-xl tracking-[0.5em] placeholder:font-sans placeholder:text-base placeholder:tracking-normal`}
                 />
               </div>
               <button
