@@ -64,6 +64,13 @@
       "when": 1791702797679,
       "tag": "0008_rich_blindfold",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793084723025,
+      "tag": "0009_tan_mystique",
+      "breakpoints": true
     }
   ]
 }

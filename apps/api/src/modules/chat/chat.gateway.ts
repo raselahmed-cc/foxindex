@@ -16,7 +16,7 @@ import { verifyAccessToken } from '@foxindex/auth';
 import { UserRole, UserStatus } from '@foxindex/types';
 import { markReadSchema, sendChatMessageSchema, typingSchema } from '@foxindex/validation';
 import { REDIS_CONNECTION } from '../../redis/redis.module';
-import { ADMINS_ROOM, conversationRoom, RealtimeService, userRoom } from '../../common/realtime/realtime.service';
+import { ADMINS_ROOM, conversationRoom, RealtimeService, userRoom, VISITORS_ROOM } from '../../common/realtime/realtime.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { addPresence, onlineUsers, PRESENCE_HEARTBEAT_MS, refreshPresence, removePresence } from '../../common/realtime/presence';
 import { ChatService } from './chat.service';
@@ -112,7 +112,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     const conversations = await this.chat.listConversations(user);
     socket.data.user = user;
     socket.data.conversationIds = conversations.map((c) => c.id);
-    await socket.join([userRoom(user.id), ...conversations.map((c) => conversationRoom(c.id)), ...(isAdmin(user.role) ? [ADMINS_ROOM] : [])]);
+    await socket.join([userRoom(user.id), ...conversations.map((c) => conversationRoom(c.id)), ...(isAdmin(user.role) ? [ADMINS_ROOM] : []), ...(user.role !== UserRole.CLIENT ? [VISITORS_ROOM] : [])]);
 
     // Tell this socket who is already online — the broadcast below only fires on a 0 → 1 transition.
     if (conversations.length) {

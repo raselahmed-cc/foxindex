@@ -4,6 +4,8 @@ import type { Namespace } from 'socket.io';
 export const userRoom = (userId: string) => `user:${userId}`;
 export const conversationRoom = (conversationId: string) => `conversation:${conversationId}`;
 export const ADMINS_ROOM = 'staff:admins';
+/** Every manager/admin socket — website visitor chats are a shared pre-sales pool. */
+export const VISITORS_ROOM = 'staff:visitors';
 
 /**
  * Thin handle on the /chat Socket.io namespace so any module (tickets,

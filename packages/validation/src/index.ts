@@ -10,3 +10,4 @@ export * from './schemas/batches.schema';
 export * from './schemas/tickets.schema';
 export * from './validators/hex-key.schema';
 export * from './schemas/tracking.schema';
+export * from './schemas/visitor-chat.schema';

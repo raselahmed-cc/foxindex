@@ -24,6 +24,7 @@ import { RealtimeModule } from './common/realtime/realtime.service';
 import { FilesModule } from './modules/files/files.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { TicketsModule } from './modules/tickets/tickets.module';
+import { VisitorChatModule } from './modules/visitor-chat/visitor-chat.module';
 import { QueuesModule } from './queues/queues.module';
 import { IdempotencyModule } from './common/idempotency/idempotency.module';
 
@@ -50,6 +51,7 @@ import { IdempotencyModule } from './common/idempotency/idempotency.module';
     BatchesModule,
     TrackingModule,
     TicketsModule,
+    VisitorChatModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

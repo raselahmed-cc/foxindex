@@ -11,3 +11,4 @@ export * from './notifications';
 export * from './api-keys';
 export * from './attachments';
 export * from './relations';
+export * from './visitor-chat';

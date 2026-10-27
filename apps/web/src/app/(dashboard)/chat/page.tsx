@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
+import { useVisitorUnread, VisitorInbox } from '@/components/chat/visitor-inbox';
 import { DashboardTopbar } from '@/components/dashboard-topbar';
 import { Avatar, Button, Card, CardHeader, EmptyState, Field, Input, Modal, Pill, Segmented, Skeleton, Textarea } from '@/components/dash/ui';
 import { Icon } from '@/components/dash/icons';
@@ -604,8 +606,10 @@ function StaffInbox({ chat, supervising }: { chat: ChatState; supervising: boole
   );
 }
 
-export default function ChatPage() {
+function ChatPageInner() {
   const me = useUser();
+  const params = useSearchParams();
+  const [tab, setTab] = useState<'clients' | 'visitors'>(params.get('tab') === 'visitors' ? 'visitors' : 'clients');
   const { profile } = useAccount();
   const isClient = me.role === 'client';
   const canSupervise = me.role === 'admin' || me.role === 'superadmin';
@@ -613,22 +617,49 @@ export default function ChatPage() {
   const chat = useChat(me.id, { scope });
   const managerFirst = profile?.manager?.name.split(' ')[0];
   const toTicket = useToTicket(isClient ? chat.conversations?.[0]?.id : undefined);
+  const visitorUnread = useVisitorUnread(!isClient);
 
   return (
     <>
       <DashboardTopbar
         title={isClient ? 'Live chat' : 'Chat inbox'}
-        subtitle={isClient ? `Talk to your account manager${managerFirst ? ` · ${managerFirst} gets your messages in real time` : ''}` : canSupervise ? 'Every client conversation, live' : 'Your assigned clients, live'}
+        subtitle={!isClient && tab === 'visitors' ? 'Chats from the public website — anyone on the team can answer' : isClient ? `Talk to your account manager${managerFirst ? ` · ${managerFirst} gets your messages in real time` : ''}` : canSupervise ? 'Every client conversation, live' : 'Your assigned clients, live'}
         search={false}
         action={
           isClient ? (
             <Button loading={toTicket.busy} disabled={!chat.conversations?.[0]} onClick={() => void toTicket.run()}>Turn into ticket</Button>
-          ) : canSupervise ? (
-            <Segmented value={scope} onChange={setScope} options={[{ value: 'all', label: 'All chats' }, { value: 'mine', label: 'My chats' }]} />
-          ) : undefined
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <Segmented
+                value={tab}
+                onChange={setTab}
+                options={[
+                  { value: 'clients', label: 'Clients' },
+                  { value: 'visitors', label: visitorUnread ? `Website visitors · ${visitorUnread}` : 'Website visitors' },
+                ]}
+              />
+              {canSupervise && tab === 'clients' && (
+                <Segmented value={scope} onChange={setScope} options={[{ value: 'all', label: 'All chats' }, { value: 'mine', label: 'My chats' }]} />
+              )}
+            </div>
+          )
         }
       />
-      {isClient ? <ClientChat chat={chat} /> : <StaffInbox key={scope} chat={chat} supervising={canSupervise && scope === 'all'} />}
+      {isClient ? (
+        <ClientChat chat={chat} />
+      ) : tab === 'visitors' ? (
+        <VisitorInbox initialId={params.get('id')} />
+      ) : (
+        <StaffInbox key={scope} chat={chat} supervising={canSupervise && scope === 'all'} />
+      )}
     </>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-sm text-auth-text3">Loading…</div>}>
+      <ChatPageInner />
+    </Suspense>
   );
 }

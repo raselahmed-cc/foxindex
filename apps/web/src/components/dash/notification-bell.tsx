@@ -18,6 +18,7 @@ const TYPE_ICON: Record<string, keyof typeof Icon> = {
   'ticket.sla_breach': 'clock',
   'credits.added': 'card',
   'chat.message': 'chat',
+  'visitor.new': 'chat',
 };
 
 export function NotificationBell() {

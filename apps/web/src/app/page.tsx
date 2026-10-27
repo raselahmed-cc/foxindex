@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SiteNav } from '@/components/marketing/site-nav';
 import { Pricing } from '@/components/marketing/pricing';
+import { VisitorChat } from '@/components/marketing/visitor-chat';
 
 export const metadata: Metadata = {
   title: 'FoxIndex — Get your new pages into Google faster',
@@ -173,6 +174,7 @@ export default function HomePage() {
           </nav>
         </footer>
       </div>
+      <VisitorChat />
     </div>
   );
 }
