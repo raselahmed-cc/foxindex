@@ -9,9 +9,11 @@ export const createBatchSchema = z.object({
   /** When set, URLs on other domains are skipped instead of submitted. */
   siteId: z.uuid().optional(),
   source: z.enum(['paste', 'csv', 'sitemap', 'api']).default('paste'),
+  /** Optional routing for API callers; the price per URL is the same either way. Default: every available engine. */
   engines: z
     .object({ google: z.boolean(), others: z.boolean() })
-    .refine((e) => e.google || e.others, { message: 'Pick at least one place to submit' }),
+    .refine((e) => e.google || e.others, { message: 'Pick at least one place to submit' })
+    .default({ google: true, others: true }),
   priority: z.boolean().default(false),
   recheckUntilIndexed: z.boolean().default(true),
   notifyWhenDone: z.boolean().default(true),

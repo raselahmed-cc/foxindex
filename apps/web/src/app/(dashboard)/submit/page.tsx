@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { DashboardTopbar } from '@/components/dashboard-topbar';
-import { Button, Card, CardHeader, Drawer, EmptyState, ErrorBanner, Field, Input, Pill, Select, Skeleton, Switch, type Tone } from '@/components/dash/ui';
+import { Button, Card, CardHeader, Drawer, EmptyState, ErrorBanner, Field, Input, Pill, Select, Skeleton, type Tone } from '@/components/dash/ui';
 import { useToast } from '@/components/dash/toast';
 import { useAccount } from '@/lib/account-context';
 import { apiClient } from '@/lib/api-client';
@@ -177,13 +177,8 @@ export default function SubmitUrlsPage() {
   const [text, setText] = useState('');
   const [name, setName] = useState('');
   const [nameTouched, setNameTouched] = useState(false);
-  const [google, setGoogle] = useState(true);
-  const googleSetup = useApi<{ enabled: boolean }>('/sites/google-setup');
-  const googleAvailable = googleSetup.data?.enabled !== false;
-  const [others, setOthers] = useState(true);
+  const pricing = useApi<{ creditsPerUrl: number }>('/credits/pricing');
   const [keepChecking, setKeepChecking] = useState(true);
-  const [priorityQueue, setPriorityQueue] = useState(false);
-  const [notify, setNotify] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<CreateResult | null>(null);
@@ -197,10 +192,7 @@ export default function SubmitUrlsPage() {
     if (!profile || prefsApplied.current) return;
     prefsApplied.current = true;
     const s = profile.preferences.submission;
-    setGoogle(s.google);
-    setOthers(s.indexnow);
     setKeepChecking(s.recheckUntilIndexed);
-    setPriorityQueue(s.priorityQueue);
     // A "Submit URLs" link from a site card (?site=…) wins over the saved default.
     const linked = new URLSearchParams(window.location.search).get('site');
     const preferred = linked ?? s.defaultSiteId;
@@ -217,13 +209,12 @@ export default function SubmitUrlsPage() {
   const suggested = suggestName(hosts);
   const shownName = nameTouched ? name : name || suggested;
 
-  // Google only counts when it is ticked *and* configured on the platform.
-  const sendGoogle = google && googleAvailable;
-  const perUrl = (sendGoogle ? 1 : 0) + (priorityQueue ? 1 : 0);
+  // Every accepted URL costs the same, whichever engines it reaches; the server is authoritative.
+  const perUrl = pricing.data?.creditsPerUrl ?? 1;
   const totalCost = readyCount * perUrl;
   const balanceAfter = (credits?.balance ?? 0) - totalCost;
   const tooMany = readyCount > MAX_URLS;
-  const canSubmit = readyCount > 0 && !tooMany && (sendGoogle || others) && balanceAfter >= 0 && !submitting;
+  const canSubmit = readyCount > 0 && !tooMany && balanceAfter >= 0 && !submitting;
 
   async function handleFile(file: File) {
     if (file.size > 5 * 1024 * 1024) {
@@ -256,10 +247,8 @@ export default function SubmitUrlsPage() {
         urls: text.split('\n').map((l) => l.trim()).filter(Boolean),
         siteId: siteId || undefined,
         source: fileName ? 'csv' : 'paste',
-        engines: { google: sendGoogle, others },
-        priority: priorityQueue,
         recheckUntilIndexed: keepChecking,
-        notifyWhenDone: notify,
+        notifyWhenDone: true,
       });
       setLastResult(res);
       setText('');
@@ -449,38 +438,10 @@ export default function SubmitUrlsPage() {
 
         <div className="flex min-w-0 flex-col gap-4 xl:sticky xl:top-5">
           <Card>
-            <CardHeader title="Where to submit" />
-            <div className="flex flex-col px-4.5 pb-2">
-              {[
-                {
-                  label: 'Google',
-                  hint: googleAvailable ? 'Google Indexing API · 1 credit per URL · refunded if Google rejects it' : 'Not available yet — the FoxIndex team is setting it up',
-                  checked: google && googleAvailable,
-                  set: setGoogle,
-                  disabled: !googleAvailable,
-                },
-                { label: 'Bing, Yandex, Naver, Seznam, Yep', hint: 'Free with every submission (IndexNow)', checked: others, set: setOthers },
-                { label: 'Priority queue', hint: 'Skip the line · +1 credit per URL', checked: priorityQueue, set: setPriorityQueue },
-                { label: 'Notify me when the batch is done', hint: 'In-app notification once every URL is sent', checked: notify, set: setNotify },
-              ].map((t, i) => (
-                <div key={t.label} className={cn('flex items-center justify-between gap-3.5 py-3 text-[13.5px]', i > 0 && 'border-t border-auth-line')}>
-                  <div>
-                    {t.label}
-                    <small className="block text-[12.5px] text-auth-text3">{t.hint}</small>
-                  </div>
-                  <Switch label={t.label} checked={t.checked} onChange={t.set} disabled={'disabled' in t ? t.disabled : false} />
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          <Card>
             <CardHeader title="Cost" right={<Pill tone="ok">{fmtNumber(readyCount)} URLs</Pill>} />
             <div className="flex flex-col gap-2.5 p-4.5 text-[13.5px]">
               {[
-                { label: `${fmtNumber(readyCount)} URLs × Google`, value: sendGoogle ? readyCount : 0 },
-                { label: `${fmtNumber(readyCount)} URLs × other engines`, value: 0 },
-                ...(priorityQueue ? [{ label: `${fmtNumber(readyCount)} URLs × priority queue`, value: readyCount }] : []),
+                { label: `${fmtNumber(readyCount)} URLs × ${fmtNumber(perUrl)} credit${perUrl === 1 ? '' : 's'}`, value: totalCost },
                 { label: `${duplicateLines.length} duplicate, ${invalidLines.length} invalid skipped`, value: 0 },
               ].map((r) => (
                 <div key={r.label} className="flex justify-between text-auth-text2">
@@ -504,7 +465,7 @@ export default function SubmitUrlsPage() {
                 Submit {fmtNumber(readyCount)} URL{readyCount === 1 ? '' : 's'}
               </Button>
               <p className="text-[12.5px] leading-snug text-auth-text3">
-                Credits for URLs Google rejects are refunded automatically. Submissions start within 60 seconds.
+                Each URL goes to Google, Bing, Yandex, Naver, Seznam and Yep. Credits for URLs that can’t be submitted are refunded automatically. Submissions start within 60 seconds.
               </p>
             </div>
           </Card>

@@ -24,6 +24,7 @@ function describeAudit(e: Overview['recentAudit'][number]): string {
   const m = (e.metadata ?? {}) as Record<string, unknown>;
   if (e.action === 'payment.approve') return `${m.reference ?? ''} +${fmtNumber(Number(m.credits ?? 0))} credits`;
   if (e.action === 'credits.manual_grant') return `+${fmtNumber(Number(m.amount ?? 0))} credits`;
+  if (e.action === 'credits.manual_deduct') return `−${fmtNumber(Number(m.amount ?? 0))} credits`;
   if (e.action === 'staff.invite') return `${m.email ?? ''} as ${m.role ?? ''}`;
   if (typeof m.label === 'string') return m.label;
   if (typeof m.reference === 'string') return m.reference;
@@ -41,7 +42,7 @@ export default function PlatformOverviewPage() {
         title="Platform overview"
         subtitle={`${today}${data ? ` · ${warnings === 0 ? 'all systems healthy' : `${warnings} item${warnings === 1 ? '' : 's'} need attention`}` : ''}`}
         search={false}
-        action={<Link href="/admin/users" className="rounded-md bg-auth-accent px-3.5 py-2 text-[13.5px] font-medium whitespace-nowrap text-white hover:bg-auth-accent2">Add credit to user</Link>}
+        action={<Link href="/admin/credits" className="rounded-md bg-auth-accent px-3.5 py-2 text-[13.5px] font-medium whitespace-nowrap text-white hover:bg-auth-accent2">Manage credits</Link>}
       />
 
       {error && <ErrorBanner message="Could not load the overview." onRetry={() => void reload()} />}

@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { DashboardTopbar } from '@/components/dashboard-topbar';
 import { Avatar, Button, Card, Drawer, EmptyState, ErrorBanner, Field, Input, Pill, Segmented, Select, Skeleton, Table, type Tone } from '@/components/dash/ui';
 import { useToast } from '@/components/dash/toast';
 import { AddClientModal } from './add-client-modal';
+import { CreditAdjustForm } from './credit-adjust';
 import { CredentialsModal, type IssuedCredentials } from './credentials-modal';
 import { useUser } from '@/lib/user-context';
 import { useNav } from '@/lib/nav-context';
@@ -39,15 +41,11 @@ function UserDrawer({
   const toast = useToast();
   const { refreshBadges } = useNav();
   const [startingCredit, setStartingCredit] = useState('100');
-  const [grant, setGrant] = useState('');
-  const [grantNote, setGrantNote] = useState('');
   const [managerId, setManagerId] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
     setStartingCredit('100');
-    setGrant('');
-    setGrantNote('');
     setManagerId(user?.assignedManagerId ?? '');
   }, [user]);
 
@@ -71,17 +69,6 @@ function UserDrawer({
       onChanged({ status: 'active', creditBalanceCached: user.creditBalanceCached + credit });
       refreshBadges();
       toast(`${user.name} approved${credit ? ` with ${fmtNumber(credit)} credits` : ''}`);
-    });
-
-  const addCredit = () =>
-    run('grant', async () => {
-      const amount = Number(grant);
-      if (!Number.isInteger(amount) || amount <= 0) throw new Error('Enter a whole number of credits');
-      const res = await apiClient.post<{ balance: number }>(`/admin/users/${user.id}/credits/grant`, { amount, note: grantNote.trim() || undefined });
-      onChanged({ creditBalanceCached: res.balance });
-      setGrant('');
-      setGrantNote('');
-      toast(`Added ${fmtNumber(amount)} credits`);
     });
 
   const assign = () =>
@@ -132,12 +119,11 @@ function UserDrawer({
 
       {user.role === 'client' && user.status === 'active' && (
         <section className="mb-5">
-          <h4 className="mb-2 text-sm font-medium">Add credit</h4>
-          <div className="grid grid-cols-[110px_1fr] gap-2">
-            <Input mono inputMode="numeric" aria-label="Credits to add" placeholder="1,000" value={grant} onChange={(e) => setGrant(e.target.value.replace(/\D/g, ''))} />
-            <Input aria-label="Note" placeholder="Note, e.g. bKash BJK7X2R4P1" maxLength={500} value={grantNote} onChange={(e) => setGrantNote(e.target.value)} />
+          <div className="mb-2 flex items-center justify-between">
+            <h4 className="text-sm font-medium">Credits</h4>
+            <Link href={`/admin/credits?user=${user.id}`} className="text-[12.5px] text-auth-accent">View ledger →</Link>
           </div>
-          <Button className="mt-2" loading={busy === 'grant'} disabled={!grant} onClick={() => void addCredit()}>Add credits</Button>
+          <CreditAdjustForm key={user.id} userId={user.id} userName={user.name} balance={user.creditBalanceCached} onDone={(balance) => onChanged({ creditBalanceCached: balance })} />
         </section>
       )}
 

@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 const LEDGER_LABEL: Record<LedgerType, string> = {
   submission_deduct: 'URL submission',
   manual_add: 'Manual credit added',
+  manual_deduct: 'Credit removed by staff',
   refund: 'Refund',
   payment_credit: 'Credit purchase',
   signup_bonus: 'Welcome credits',

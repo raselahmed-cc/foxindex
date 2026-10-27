@@ -5,7 +5,7 @@ const creditTransactionSchema = z.object({
   id: z.uuid(),
   userId: z.uuid(),
   amount: z.number().int(),
-  type: z.enum(['signup_bonus', 'manual_add', 'submission_deduct', 'refund', 'payment_credit']),
+  type: z.enum(['signup_bonus', 'manual_add', 'submission_deduct', 'refund', 'payment_credit', 'manual_deduct']),
   performedBy: z.uuid().nullable(),
   referenceId: z.uuid().nullable(),
   note: z.string().nullable(),

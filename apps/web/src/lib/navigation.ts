@@ -55,6 +55,7 @@ export function navFor(role: Role): NavGroup[] {
           { href: '/chat', label: 'Chat inbox', short: 'Chat', icon: 'chat', badgeKey: 'unreadChats' },
           { href: '/tickets', label: 'Tickets', icon: 'ticket', badgeKey: 'unreadTickets' },
           { href: '/admin/payments', label: 'Credit requests', short: 'Payments', icon: 'card', badgeKey: 'pendingPayments' },
+          { href: '/admin/credits', label: 'Credit management', short: 'Credits', icon: 'coin' },
         ],
       },
       {
@@ -76,7 +77,8 @@ export function navFor(role: Role): NavGroup[] {
       items: [
         { href: '/admin/users', label: 'All users', short: 'Users', icon: 'user' },
         { href: '/admin/approvals', label: 'Approvals', icon: 'check', badgeKey: 'pendingApprovals' },
-        { href: '/admin/payments', label: 'Credits & payments', short: 'Payments', icon: 'card', badgeKey: 'pendingPayments' },
+        { href: '/admin/credits', label: 'Credit management', short: 'Credits', icon: 'coin' },
+        { href: '/admin/payments', label: 'Payments', short: 'Payments', icon: 'card', badgeKey: 'pendingPayments' },
         { href: '/tickets', label: 'All tickets', short: 'Tickets', icon: 'ticket', badgeKey: 'unreadTickets' },
         { href: '/admin/audit', label: 'Audit log', short: 'Audit', icon: 'list' },
       ],

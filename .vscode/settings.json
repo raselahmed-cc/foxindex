@@ -1,0 +1,5 @@
+{
+  // Use the repo's pinned TypeScript (same as the build), not the editor's bundled version.
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
+}

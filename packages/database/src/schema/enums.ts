@@ -10,6 +10,7 @@ export const creditTransactionTypeEnum = pgEnum('credit_transaction_type', [
   'submission_deduct',
   'refund',
   'payment_credit',
+  'manual_deduct',
 ]);
 
 export const paymentMethodTypeEnum = pgEnum('payment_method_type', [

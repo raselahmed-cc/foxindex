@@ -53,7 +53,7 @@ export interface CreditSummary {
   daysLeft: number | null;
 }
 
-export type LedgerType = 'signup_bonus' | 'manual_add' | 'submission_deduct' | 'refund' | 'payment_credit';
+export type LedgerType = 'signup_bonus' | 'manual_add' | 'manual_deduct' | 'submission_deduct' | 'refund' | 'payment_credit';
 
 export interface LedgerRow {
   id: string;

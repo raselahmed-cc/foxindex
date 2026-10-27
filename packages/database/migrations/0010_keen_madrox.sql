@@ -1,0 +1,1 @@
+ALTER TYPE "public"."credit_transaction_type" ADD VALUE 'manual_deduct';

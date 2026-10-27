@@ -331,10 +331,7 @@ function DefaultsSection({ profile }: { profile: Profile }) {
       subtitle="Pre-filled every time you submit. You can still change them per batch."
       footer={<Button variant="primary" loading={saving} onClick={() => void save({ submission: sub }, 'Submission defaults saved')}>Save defaults</Button>}
     >
-      {opt('google', 'Send to Google', '1 credit per URL')}
-      {opt('indexnow', 'Send to Bing, Yandex & other engines', 'Bing, Yandex, Naver, Seznam, Yep · free')}
       {opt('recheckUntilIndexed', 'Keep checking until indexed', 'Re-check at 6h, 24h, 72h · up to 3 resubmits')}
-      {opt('priorityQueue', 'Priority queue', '+1 credit per URL')}
       {opt('skipAlreadyIndexed', 'Skip URLs already indexed', 'Saves credits when re-importing a sitemap')}
       <div className="mt-3.5 grid gap-x-3.5 sm:grid-cols-2">
         <Field label="Default site" className="mb-0">

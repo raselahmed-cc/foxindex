@@ -94,6 +94,6 @@ export class AdminController {
     @CurrentUser() actor: AuthenticatedRequest['user'],
     @Body(new ZodValidationPipe(grantCreditsSchema)) body: GrantCreditsInput,
   ) {
-    return this.admin.grantCredits(userId, actor.id, body);
+    return this.admin.grantCredits(userId, actor, body);
   }
 }

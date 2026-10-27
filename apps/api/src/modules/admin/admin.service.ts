@@ -16,6 +16,7 @@ import { UserRole } from '@foxindex/types';
 import { NotFoundError, ValidationError } from '../../common/errors/app-error';
 import { AuditLogService } from '../audit-logs/audit-log.service';
 import { CreditsRepository } from '../credits/credits.repository';
+import { CreditsAdminService } from '../credits/credits-admin.service';
 import { AuthService } from '../auth/auth.service';
 import { AdminRepository } from './admin.repository';
 import { ChatRepository } from '../chat/chat.repository';
@@ -26,6 +27,7 @@ export class AdminService {
   constructor(
     @Inject(AdminRepository) private readonly repository: AdminRepository,
     @Inject(CreditsRepository) private readonly credits: CreditsRepository,
+    @Inject(CreditsAdminService) private readonly creditsAdmin: CreditsAdminService,
     @Inject(AuditLogService) private readonly auditLog: AuditLogService,
     @Inject(AuthService) private readonly auth: AuthService,
     @Inject(ChatRepository) private readonly chat: ChatRepository,
@@ -138,20 +140,8 @@ export class AdminService {
     return this.auth.approve(targetUserId, actorId, input);
   }
 
-  async grantCredits(targetUserId: string, actorId: string, input: GrantCreditsInput) {
-    const target = await this.repository.findUserById(targetUserId);
-    if (!target || target.role === UserRole.SUPERADMIN) throw new NotFoundError('User');
-
-    const balance = await this.credits.grant(targetUserId, input.amount, 'manual_add', actorId, input.note);
-
-    await this.auditLog.record({
-      actorId,
-      action: 'credits.manual_grant',
-      targetType: 'user',
-      targetId: targetUserId,
-      metadata: { amount: input.amount, note: input.note },
-    });
-
-    return { userId: targetUserId, balance };
+  /** Legacy add-only endpoint — same limits and audit trail as the credit management page. */
+  grantCredits(targetUserId: string, actor: { id: string; role: UserRole }, input: GrantCreditsInput) {
+    return this.creditsAdmin.adjust(actor, targetUserId, { direction: 'add', amount: input.amount, reason: input.note || 'Manual credit' });
   }
 }

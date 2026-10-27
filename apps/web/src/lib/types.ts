@@ -40,7 +40,7 @@ export interface CreditTransaction {
   id: string;
   userId: string;
   amount: number;
-  type: 'signup_bonus' | 'manual_add' | 'submission_deduct' | 'refund' | 'payment_credit';
+  type: 'signup_bonus' | 'manual_add' | 'manual_deduct' | 'submission_deduct' | 'refund' | 'payment_credit';
   performedBy: string | null;
   referenceId: string | null;
   note: string | null;

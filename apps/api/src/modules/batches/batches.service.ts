@@ -22,6 +22,7 @@ import { DATABASE } from '../../database/database.module';
 import { SUBMISSION_QUEUE } from '../../queues/submission-queue.provider';
 import { AuditLogService } from '../audit-logs/audit-log.service';
 import { CreditsRepository } from '../credits/credits.repository';
+import { CreditSettingsService } from '../credits/credit-settings.service';
 import { defaultBatchName, prepareUrls } from './prepare-urls';
 
 const CHUNK = 1000;
@@ -50,6 +51,7 @@ export class BatchesService {
     @Inject(SUBMISSION_QUEUE) private readonly queue: Queue,
     @Inject(AuditLogService) private readonly auditLog: AuditLogService,
     @Inject(CreditsRepository) private readonly credits: CreditsRepository,
+    @Inject(CreditSettingsService) private readonly creditSettings: CreditSettingsService,
   ) {}
 
   async create(userId: string, rawInput: CreateBatchInput, apiKey?: BatchApiKeyContext) {
@@ -74,25 +76,18 @@ export class BatchesService {
       .select()
       .from(indexingProviders)
       .where(and(eq(indexingProviders.isActive, true), inArray(indexingProviders.kind, ['google_indexing', 'indexnow'])));
-    const google = providers.find((p) => p.kind === 'google_indexing');
-    const others = providers.find((p) => p.kind === 'indexnow');
-    if (input.engines.google && !google) {
-      throw new AppError(ErrorCode.PROVIDER_ERROR, 'Google submission is temporarily unavailable. Untick Google or try again later.');
+    // Google is only usable once a service account exists; until then URLs still go to the IndexNow engines.
+    const [{ n: serviceAccounts }] = await this.db.select({ n: sql<string>`count(*)` }).from(googleServiceAccounts).where(eq(googleServiceAccounts.isActive, true));
+    const google = input.engines.google && Number(serviceAccounts) > 0 ? providers.find((p) => p.kind === 'google_indexing') : undefined;
+    const others = input.engines.others ? providers.find((p) => p.kind === 'indexnow') : undefined;
+    if (!google && !others) {
+      throw new AppError(ErrorCode.PROVIDER_ERROR, 'Submission is temporarily unavailable. Please try again later.', { reason: 'NO_ENGINE_AVAILABLE' });
     }
-    if (input.engines.google) {
-      // Without a service account nothing can send to Google — don't charge for work that can't happen.
-      const [{ n }] = await this.db.select({ n: sql<string>`count(*)` }).from(googleServiceAccounts).where(eq(googleServiceAccounts.isActive, true));
-      if (Number(n) === 0) {
-        throw new AppError(ErrorCode.PROVIDER_ERROR, 'Google submission is not available yet. Untick Google to send to Bing, Yandex and the other engines for free.', { reason: 'GOOGLE_NOT_CONFIGURED' });
-      }
-    }
-    if (!input.engines.google && input.engines.others && !others) {
-      throw new AppError(ErrorCode.PROVIDER_ERROR, 'Submission is temporarily unavailable. Please try again later.');
-    }
-    const googleCost = Number((google?.config as { creditCost?: number } | null)?.creditCost ?? 1);
 
-    const perUrl = (input.engines.google ? googleCost : 0) + (input.priority ? 1 : 0);
-    const engines = [input.engines.google ? 'google' : null, input.engines.others ? 'others' : null].filter((e): e is string => e !== null);
+    // One price per accepted URL, whichever engines it goes to (superadmin sets it under Credit management).
+    const { creditsPerUrl } = await this.creditSettings.get();
+    const perUrl = creditsPerUrl + (input.priority ? 1 : 0);
+    const engines = [google ? 'google' : null, others ? 'others' : null].filter((e): e is string => e !== null);
     const name = input.name?.trim() || defaultBatchName(prepared.hosts);
 
     // Everything below is one transaction: a batch rejected for credits or caps
@@ -171,13 +166,11 @@ export class BatchesService {
         .returning();
 
       const rows: (typeof urlSubmissions.$inferInsert)[] = [];
+      // The URL's charge rides on one submission row — Google when it's used, else IndexNow — so the
+      // worker refunds it automatically if that submission fails.
       for (const u of targets) {
-        if (input.engines.google && google) {
-          rows.push({ urlId: u.id, userId, providerId: google.id, batchId: created.id, creditCost: googleCost + (input.priority ? 1 : 0) });
-        }
-        if (input.engines.others && others) {
-          rows.push({ urlId: u.id, userId, providerId: others.id, batchId: created.id, creditCost: 0 });
-        }
+        if (google) rows.push({ urlId: u.id, userId, providerId: google.id, batchId: created.id, creditCost: perUrl });
+        if (others) rows.push({ urlId: u.id, userId, providerId: others.id, batchId: created.id, creditCost: google ? 0 : perUrl });
       }
       for (const part of chunks(rows)) await tx.insert(urlSubmissions).values(part);
 
