@@ -74,6 +74,10 @@ export const payments = pgTable(
     reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
     rejectReason: text('reject_reason'),
     gatewayPayload: jsonb('gateway_payload'),
+    /** PayPal order id — the checkout we capture once the shopper approves it. */
+    gatewayOrderId: text('gateway_order_id'),
+    /** Shopper asked to save this PayPal account / card for later top-ups. */
+    saveMethod: boolean('save_method').notNull().default(false),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
@@ -82,13 +86,30 @@ export const payments = pgTable(
   ],
 );
 
+/**
+ * A client's own saved payment details. Wallet numbers and bank accounts only
+ * prefill manual payments. PayPal accounts and cards are vaulted at PayPal:
+ * we keep the vault token and display details (brand, last 4, email) — never a
+ * card number.
+ */
 export const userPaymentAccounts = pgTable('user_payment_accounts', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id')
     .notNull()
     .references(() => users.id),
   type: paymentMethodTypeEnum('type').notNull(),
+  /** Display value: wallet/bank number, PayPal email, or "•••• 4242". */
   accountNumber: text('account_number').notNull(),
   label: text('label'),
   isDefault: boolean('is_default').default(false),
+  /** 'paypal' for vaulted methods; null for details the client typed in. */
+  provider: text('provider'),
+  providerToken: text('provider_token'),
+  providerCustomerId: text('provider_customer_id'),
+  brand: text('brand'),
+  last4: text('last4'),
+  expiry: text('expiry'),
+  bankName: text('bank_name'),
+  accountName: text('account_name'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });

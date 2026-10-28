@@ -12,7 +12,7 @@ import { useAccount } from '@/lib/account-context';
 import { apiClient } from '@/lib/api-client';
 import { errorMessage, useApi } from '@/lib/use-api';
 import { PAYMENT_STATUS } from '@/lib/billing-labels';
-import type { CreditPack, Payment, PaymentMethod } from '@/lib/api-types';
+import type { CreditPack, Payment, PaymentMethod, SavedMethod } from '@/lib/api-types';
 import { fmtDateTime, fmtMoney, fmtNumber } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -134,6 +134,7 @@ function BuyCredits() {
   const packs = useApi<CreditPack[]>('/billing/packs');
   const methods = useApi<PaymentMethod[]>('/billing/methods');
   const recent = useApi<Payment[]>('/billing/payments');
+  const saved = useApi<SavedMethod[]>('/billing/saved-methods');
 
   const [selection, setSelection] = useState<Selection>(() => ({
     packId: params.get('pack'),
@@ -143,6 +144,9 @@ function BuyCredits() {
   }));
   const [trxId, setTrxId] = useState('');
   const [sender, setSender] = useState('');
+  /** PayPal: a saved card/PayPal account id, or 'new' for a fresh PayPal checkout. */
+  const [savedId, setSavedId] = useState<string>('new');
+  const [saveMethod, setSaveMethod] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [result, setResult] = useState<{ reference: string; result: string } | null>(() => {
@@ -166,6 +170,28 @@ function BuyCredits() {
 
   const { quote, loading: quoting } = useQuote(selection);
   const method = methods.data?.find((m) => m.id === selection.methodId) ?? null;
+  const vaulted = useMemo(() => (saved.data ?? []).filter((m) => m.provider === 'paypal'), [saved.data]);
+  const isPayPal = method?.gateway === 'paypal';
+  const chosenSaved = isPayPal && savedId !== 'new' ? (vaulted.find((m) => m.id === savedId) ?? null) : null;
+
+  // PayPal only settles in US dollars.
+  useEffect(() => {
+    if (method?.usdOnly && selection.currency !== 'USD') setSelection((s) => ({ ...s, currency: 'USD' }));
+  }, [method?.usdOnly, selection.currency]);
+
+  // Start on the client's default saved card/PayPal account when paying by PayPal.
+  const preferredVaulted = vaulted.find((m) => m.isDefault)?.id ?? vaulted[0]?.id ?? null;
+  useEffect(() => {
+    if (isPayPal && preferredVaulted) setSavedId(preferredVaulted);
+  }, [isPayPal, preferredVaulted]);
+
+  // Prefill "sent from" with the client's saved wallet/bank details of the same kind.
+  const savedSender = method?.isManual
+    ? ((saved.data ?? []).filter((m) => m.type === method.type).sort((a, b) => Number(b.isDefault) - Number(a.isDefault))[0]?.display ?? null)
+    : null;
+  useEffect(() => {
+    if (savedSender) setSender((cur) => cur || savedSender);
+  }, [savedSender]);
   const sliderValue = quote?.credits ?? selection.credits ?? 3000;
   const step: 1 | 2 | 3 = !quote ? 1 : !method ? 2 : method.isManual && trxId.trim().length < 4 ? 2 : 3;
 
@@ -185,9 +211,15 @@ function BuyCredits() {
         currency: selection.currency,
         ...(selection.packId ? { packId: selection.packId } : { credits: quote.credits }),
         ...(method.isManual ? { transactionId: trxId.trim(), senderNumber: sender.trim() || undefined } : {}),
+        ...(isPayPal ? (chosenSaved ? { savedMethodId: chosenSaved.id } : { saveMethod }) : {}),
       });
       if (res.redirectUrl) {
         window.location.assign(res.redirectUrl);
+        return;
+      }
+      if (res.payment.status === 'approved') {
+        void recent.reload();
+        setResult({ reference: res.payment.reference, result: 'approved' });
         return;
       }
       setTrxId('');
@@ -311,8 +343,41 @@ function BuyCredits() {
                 </div>
               )}
 
+              {isPayPal && method?.available && (
+                <div className="mt-3.5 rounded-[10px] border border-auth-line bg-auth-bg2 p-4">
+                  <b className="mb-1 block font-medium">Pay with PayPal</b>
+                  <p className="mb-3 text-[13px] text-auth-text2">Charged in US dollars. Use your PayPal balance or any debit or credit card — card details go to PayPal, never to us.</p>
+                  <div role="radiogroup" aria-label="PayPal payment source" className="grid gap-2">
+                    {vaulted.map((m) => (
+                      <label key={m.id} className={cn('flex items-center gap-3 rounded-lg border p-3 text-[13.5px]', savedId === m.id ? 'border-auth-accent bg-auth-accent-soft' : 'border-auth-line bg-auth-bg')}>
+                        <input type="radio" name="pp-source" checked={savedId === m.id} onChange={() => setSavedId(m.id)} className="accent-auth-accent" />
+                        <span className="min-w-0 flex-1">
+                          <b className="block font-medium">{m.label ?? m.display}</b>
+                          <small className="block text-xs text-auth-text3">{m.type === 'card' ? 'Saved card · charged instantly' : `${m.display} · charged instantly`}</small>
+                        </span>
+                        {m.isDefault && <Pill tone="info">Default</Pill>}
+                      </label>
+                    ))}
+                    <label className={cn('flex items-center gap-3 rounded-lg border p-3 text-[13.5px]', savedId === 'new' ? 'border-auth-accent bg-auth-accent-soft' : 'border-auth-line bg-auth-bg')}>
+                      <input type="radio" name="pp-source" checked={savedId === 'new'} onChange={() => setSavedId('new')} className="accent-auth-accent" />
+                      <span className="min-w-0 flex-1">
+                        <b className="block font-medium">{vaulted.length ? 'Another PayPal account or card' : 'PayPal account or card'}</b>
+                        <small className="block text-xs text-auth-text3">You’ll approve the payment on PayPal and come straight back</small>
+                      </span>
+                    </label>
+                  </div>
+                  {savedId === 'new' && (
+                    <label className="mt-3 flex items-center gap-2 text-[13px]">
+                      <input type="checkbox" checked={saveMethod} onChange={(e) => setSaveMethod(e.target.checked)} className="accent-auth-accent" />
+                      Save this PayPal account for one-click top-ups
+                    </label>
+                  )}
+                  <Link href="/billing/methods" className="mt-2.5 inline-block text-[12.5px] text-auth-accent">Manage payment methods →</Link>
+                </div>
+              )}
+
               <div className="mt-3.5 flex flex-wrap gap-4 text-xs text-auth-text3">
-                {['Payments verified server-side', 'Credits never expire', 'Refunded if Google rejects a URL', 'Receipt for every payment'].map((t) => (
+                {['Payments verified server-side', 'Credits never expire', 'Refunded if a URL can’t be submitted', 'Receipt for every payment'].map((t) => (
                   <span key={t} className="flex items-center gap-1.5"><Icon.check className="h-3.25 w-3.25 text-auth-ok" />{t}</span>
                 ))}
               </div>
@@ -327,11 +392,11 @@ function BuyCredits() {
               <OrderSummary quote={quote} method={method} balance={credits?.balance} loading={quoting}>
                 {formError && <p role="alert" className="text-[12.5px] text-auth-bad">{formError}</p>}
                 <Button variant="primary" size="lg" className="mt-1 w-full" disabled={!quote || !method || !method.available} loading={submitting} onClick={() => void pay()}>
-                  {!quote ? 'Choose an amount' : method?.isManual ? `Submit ${fmtMoney(quote.total, quote.currency)} for approval` : `Pay ${fmtMoney(quote.total, quote.currency)} with ${method?.label ?? '…'}`}
+                  {!quote ? 'Choose an amount' : method?.isManual ? `Submit ${fmtMoney(quote.total, quote.currency)} for approval` : chosenSaved ? `Pay ${fmtMoney(quote.total, quote.currency)} with ${chosenSaved.label ?? chosenSaved.display}` : `Pay ${fmtMoney(quote.total, quote.currency)} with ${isPayPal ? 'PayPal' : (method?.label ?? '…')}`}
                 </Button>
                 <p className="flex items-start justify-center gap-2 text-center text-xs text-auth-text3">
                   <Icon.lock className="mt-0.5 h-3.25 w-3.25 flex-shrink-0" />
-                  {method?.isManual ? 'Credits are added once your manager confirms the transfer.' : "You'll be redirected to the payment page and back. Nothing is charged until you confirm there."}
+                  {method?.isManual ? 'Credits are added once your manager confirms the transfer.' : chosenSaved ? 'Charged right away to your saved method. Credits are added the moment PayPal confirms.' : "You'll be redirected to the payment page and back. Nothing is charged until you confirm there."}
                 </p>
               </OrderSummary>
             </div>

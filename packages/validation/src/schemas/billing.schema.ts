@@ -9,6 +9,10 @@ export const createPaymentSchema = z
     currency: z.enum(['BDT', 'USD']).default('BDT'),
     transactionId: z.string().trim().min(4).max(64).optional(),
     senderNumber: z.string().trim().max(32).optional(),
+    /** Pay with a saved PayPal account or card (PayPal method only). */
+    savedMethodId: z.uuid().optional(),
+    /** Save the PayPal account used at checkout for later top-ups. */
+    saveMethod: z.boolean().default(false),
   })
   .refine((v) => Boolean(v.packId) !== Boolean(v.credits), {
     message: 'Provide exactly one of packId or credits',
@@ -61,3 +65,27 @@ export const upsertPaymentMethodSchema = z.object({
   sortOrder: z.number().int().min(0).max(10_000).default(100),
 });
 export type UpsertPaymentMethodInput = z.infer<typeof upsertPaymentMethodSchema>;
+
+// ── Saved payment methods (client self-service) ─────────────────────────
+
+/** Details a client types in to prefill manual payments. Cards/PayPal are added through PayPal's vault instead. */
+export const addPaymentAccountSchema = z.object({
+  type: z.enum(['bkash', 'nagad', 'rocket', 'bank']),
+  accountNumber: z.string().trim().min(4, 'Enter the full number').max(40),
+  label: z.string().trim().max(60).optional(),
+  bankName: z.string().trim().max(80).optional(),
+  accountName: z.string().trim().max(80).optional(),
+  isDefault: z.boolean().default(false),
+});
+export type AddPaymentAccountInput = z.infer<typeof addPaymentAccountSchema>;
+
+export const updatePaymentAccountSchema = z
+  .object({ label: z.string().trim().max(60).optional(), isDefault: z.literal(true).optional() })
+  .refine((v) => v.label !== undefined || v.isDefault !== undefined, { message: 'Nothing to change' });
+export type UpdatePaymentAccountInput = z.infer<typeof updatePaymentAccountSchema>;
+
+export const startVaultSchema = z.object({ kind: z.enum(['paypal', 'card']) });
+export type StartVaultInput = z.infer<typeof startVaultSchema>;
+
+export const confirmVaultSchema = z.object({ setupTokenId: z.string().trim().min(5).max(64).regex(/^[A-Za-z0-9-]+$/) });
+export type ConfirmVaultInput = z.infer<typeof confirmVaultSchema>;

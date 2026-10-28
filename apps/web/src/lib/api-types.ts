@@ -90,6 +90,24 @@ export interface PaymentMethod {
   bankName: string | null;
   branch: string | null;
   instructions: string | null;
+  /** PayPal settles in US dollars only. */
+  usdOnly?: boolean;
+}
+
+/** A client's saved payment method. Cards and PayPal accounts are vaulted at PayPal; we only see display details. */
+export interface SavedMethod {
+  id: string;
+  type: 'bkash' | 'nagad' | 'rocket' | 'bank' | 'card' | 'paypal';
+  label: string | null;
+  display: string;
+  isDefault: boolean;
+  provider: 'paypal' | null;
+  brand: string | null;
+  last4: string | null;
+  expiry: string | null;
+  bankName: string | null;
+  accountName: string | null;
+  createdAt: string;
 }
 
 export interface Quote {

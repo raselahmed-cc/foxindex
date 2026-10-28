@@ -79,3 +79,23 @@ export class AamarPayReturnController {
     res.redirect(303, target.toString());
   }
 }
+
+/**
+ * PayPal sends the shopper back here (GET) after approving or cancelling. The
+ * redirect proves nothing — the service captures the order server-to-server.
+ */
+@Controller('billing/paypal')
+export class PayPalReturnController {
+  constructor(@Inject(BillingService) private readonly billing: BillingService) {}
+
+  @Get('return')
+  async paypalReturn(@Query('ref') ref: string, @Query('outcome') outcome: string, @Res() res: Response) {
+    const webOrigin = process.env.CORS_ORIGIN ?? 'http://localhost:3000';
+    const reference = /^PAY-\d+$/.test(ref ?? '') ? ref : '';
+    const result = reference ? await this.billing.handlePayPalReturn(reference, outcome ?? '') : 'failed';
+    const target = new URL('/billing/buy', webOrigin);
+    target.searchParams.set('payment', reference);
+    target.searchParams.set('result', result);
+    res.redirect(303, target.toString());
+  }
+}

@@ -25,6 +25,7 @@ import { FilesModule } from './modules/files/files.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { TicketsModule } from './modules/tickets/tickets.module';
 import { VisitorChatModule } from './modules/visitor-chat/visitor-chat.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
 import { QueuesModule } from './queues/queues.module';
 import { IdempotencyModule } from './common/idempotency/idempotency.module';
 
@@ -52,6 +53,7 @@ import { IdempotencyModule } from './common/idempotency/idempotency.module';
     TrackingModule,
     TicketsModule,
     VisitorChatModule,
+    ReviewsModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

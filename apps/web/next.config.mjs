@@ -7,15 +7,20 @@ const production = process.env.NODE_ENV === 'production';
  * Content-Security-Policy: the app only talks to its own origin and the API
  * (HTTP + socket.io websocket); attachments and avatars load from the API.
  * Next.js inlines its bootstrap scripts, hence 'unsafe-inline' for scripts
- * and styles (no third-party script hosts are allowed).
+ * and styles. The only third-party host allowed is PayPal (see below).
  */
+// PayPal's hosted card fields (saved cards) load from paypal.com in iframes —
+// card numbers are typed into PayPal's frames, never into our page.
+const paypal = 'https://www.paypal.com https://*.paypal.com https://*.paypalobjects.com';
+
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${production ? '' : " 'unsafe-eval'"}`,
+  `script-src 'self' 'unsafe-inline'${production ? '' : " 'unsafe-eval'"} ${paypal}`,
   "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: blob: ${apiOrigin}`,
+  `img-src 'self' data: blob: ${apiOrigin} ${paypal}`,
   "font-src 'self' data:",
-  `connect-src 'self' ${apiOrigin} ${apiWs}`,
+  `connect-src 'self' ${apiOrigin} ${apiWs} ${paypal}`,
+  `frame-src ${paypal}`,
   `media-src 'self' ${apiOrigin}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",

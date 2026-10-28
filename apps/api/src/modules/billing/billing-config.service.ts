@@ -6,6 +6,7 @@ import { NotFoundError } from '../../common/errors/app-error';
 import { DATABASE } from '../../database/database.module';
 import { AuditLogService } from '../audit-logs/audit-log.service';
 import { AamarPayClient } from './aamarpay.client';
+import { PayPalClient } from './paypal.client';
 
 /** Superadmin-only catalog management: packs, payment methods, gateway status. */
 @Injectable()
@@ -14,6 +15,7 @@ export class BillingConfigService {
     @Inject(DATABASE) private readonly db: Database,
     @Inject(AuditLogService) private readonly auditLog: AuditLogService,
     @Inject(AamarPayClient) private readonly aamarpay: AamarPayClient,
+    @Inject(PayPalClient) private readonly paypal: PayPalClient,
   ) {}
 
   async listPacks() {
@@ -101,6 +103,32 @@ export class BillingConfigService {
         abandonedToday: Number(s?.abandoned_today ?? 0),
         lastSuccessAt: s?.last_at ? new Date(s.last_at).toISOString() : null,
       },
+      await this.paypalStatus(),
     ];
+  }
+
+  private async paypalStatus() {
+    const cfg = this.paypal.config();
+    const stats = await this.db.execute<{ total: string; approved: string; abandoned_today: string; last_at: string | null }>(sql`
+      SELECT count(*) AS total,
+             count(*) FILTER (WHERE p.status = 'approved') AS approved,
+             count(*) FILTER (WHERE p.status IN ('pending','expired','rejected') AND p.created_at >= date_trunc('day', now())) AS abandoned_today,
+             max(p.reviewed_at) FILTER (WHERE p.status = 'approved') AS last_at
+      FROM ${payments} p JOIN ${paymentMethods} m ON m.id = p.method_id
+      WHERE m.gateway = 'paypal' AND p.created_at >= date_trunc('month', now())
+    `);
+    const s = stats.rows[0];
+    const total = Number(s?.total ?? 0);
+    return {
+      id: 'paypal',
+      name: 'PayPal',
+      covers: 'PayPal balance, debit and credit cards (USD) · saved cards and PayPal accounts',
+      configured: cfg !== null,
+      mode: cfg ? (cfg.sandbox ? 'sandbox' : 'live') : 'off',
+      storeId: cfg ? `${cfg.clientId.slice(0, 6)}…` : null,
+      successRate: total > 0 ? Number(s?.approved ?? 0) / total : null,
+      abandonedToday: Number(s?.abandoned_today ?? 0),
+      lastSuccessAt: s?.last_at ? new Date(s.last_at).toISOString() : null,
+    };
   }
 }

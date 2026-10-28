@@ -97,6 +97,15 @@ async function main() {
         sortOrder: 40,
       },
       {
+        type: 'gateway',
+        label: 'PayPal or card (USD)',
+        network: 'paypal',
+        isManual: false,
+        gateway: 'paypal',
+        instructions: 'Pay with your PayPal balance or any debit/credit card. Charged in USD.',
+        sortOrder: 45,
+      },
+      {
         type: 'bank',
         label: 'Bank transfer',
         accountName: 'FoxIndex Ltd',

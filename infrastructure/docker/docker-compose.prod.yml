@@ -109,6 +109,9 @@ services:
       AAMARPAY_STORE_ID: ${AAMARPAY_STORE_ID:-}
       AAMARPAY_SIGNATURE_KEY: ${AAMARPAY_SIGNATURE_KEY:-}
       AAMARPAY_SANDBOX: ${AAMARPAY_SANDBOX:-false}
+      PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID:-}
+      PAYPAL_CLIENT_SECRET: ${PAYPAL_CLIENT_SECRET:-}
+      PAYPAL_MODE: ${PAYPAL_MODE:-sandbox}
     volumes:
       # Ticket/chat attachments. With more than one API replica this must be shared storage.
       - uploads:/data/uploads

@@ -11,6 +11,8 @@ import { MAILER } from '../auth/mailer.provider';
 import { AuditLogService } from '../audit-logs/audit-log.service';
 import { CreditsRepository } from '../credits/credits.repository';
 import { AamarPayClient } from './aamarpay.client';
+import { PaymentAccountsService } from './payment-accounts.service';
+import { PayPalApiError, PayPalClient, type CaptureResult } from './paypal.client';
 import { paymentApprovedEmail, paymentRejectedEmail, paymentSubmittedEmail } from './billing-emails';
 import { quote, type Currency, type Quote } from './pricing';
 
@@ -37,6 +39,8 @@ export class BillingService {
     @Inject(AuditLogService) private readonly auditLog: AuditLogService,
     @Inject(CreditsRepository) private readonly credits: CreditsRepository,
     @Inject(AamarPayClient) private readonly aamarpay: AamarPayClient,
+    @Inject(PayPalClient) private readonly paypal: PayPalClient,
+    @Inject(PaymentAccountsService) private readonly accounts: PaymentAccountsService,
   ) {}
 
   // ── Catalog ────────────────────────────────────────────────────────────
@@ -57,6 +61,7 @@ export class BillingService {
       .where(eq(paymentMethods.isActive, true))
       .orderBy(asc(paymentMethods.sortOrder));
     const gatewayReady = this.aamarpay.config() !== null;
+    const paypalReady = this.paypal.config() !== null;
     return rows.map((m) => ({
       id: m.id,
       type: m.type,
@@ -65,7 +70,9 @@ export class BillingService {
       isManual: m.isManual,
       gateway: m.gateway,
       feePercent: Number(m.feePercent),
-      available: m.isManual || (m.gateway === 'aamarpay' && gatewayReady),
+      available: m.isManual || (m.gateway === 'aamarpay' && gatewayReady) || (m.gateway === 'paypal' && paypalReady),
+      /** PayPal only settles in US dollars. */
+      usdOnly: m.gateway === 'paypal',
       accountNumber: m.isManual ? m.accountNumber : null,
       accountName: m.isManual ? m.accountName : null,
       bankName: m.isManual ? m.bankName : null,
@@ -116,6 +123,8 @@ export class BillingService {
       return { payment: this.toClientPayment(payment, method.label), redirectUrl: null };
     }
 
+    if (method.gateway === 'paypal') return this.startPayPal(user, method, q, input);
+
     const cfg = this.aamarpay.config();
     if (method.gateway !== 'aamarpay' || !cfg) {
       throw new AppError(ErrorCode.VALIDATION_ERROR, 'Online payments are not available right now. Choose bank transfer or message your manager.', {
@@ -160,6 +169,7 @@ export class BillingService {
     transactionId?: string;
     senderNumber?: string;
     expiresAt?: Date;
+    saveMethod?: boolean;
   }) {
     const seq = await this.db.execute<{ n: string }>(sql`SELECT nextval('payment_reference_seq') AS n`);
     const reference = `PAY-${seq.rows[0].n}`;
@@ -178,6 +188,7 @@ export class BillingService {
           transactionId: input.transactionId,
           senderNumber: input.senderNumber,
           expiresAt: input.expiresAt,
+          saveMethod: input.saveMethod ?? false,
         })
         .returning();
       return row;
@@ -261,6 +272,213 @@ export class BillingService {
     this.logger.warn(`aamarPay amount/currency mismatch on ${reference}`);
     await this.db.update(payments).set({ status: 'under_review', gatewayPayload: result.raw }).where(eq(payments.id, payment.id));
     return 'pending';
+  }
+
+  // ── PayPal ─────────────────────────────────────────────────────────────
+
+  private async startPayPal(user: typeof users.$inferSelect, method: typeof paymentMethods.$inferSelect, q: Quote, input: CreatePaymentInput) {
+    const cfg = this.paypal.config();
+    if (!cfg) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 'PayPal is not available right now. Choose another method or message your manager.', { reason: 'GATEWAY_NOT_CONFIGURED' });
+    }
+    if (q.currency !== 'USD') throw new ValidationError('PayPal charges in US dollars — switch the currency to USD', { reason: 'USD_ONLY' });
+
+    const saved = input.savedMethodId ? await this.accounts.vaultedFor(user.id, input.savedMethodId) : null;
+    const vault = !saved && input.saveMethod;
+    const payment = await this.insertPayment({
+      userId: user.id,
+      methodId: method.id,
+      quote: q,
+      status: 'pending',
+      expiresAt: new Date(Date.now() + GATEWAY_CHECKOUT_TTL_MS),
+      saveMethod: vault,
+    });
+    await this.auditLog.record({ actorId: user.id, action: 'payment.start', targetType: 'payment', targetId: payment.id, metadata: { reference: payment.reference, gateway: 'paypal', saved: Boolean(saved) } });
+
+    const apiUrl = this.config.getOrThrow<string>('API_PUBLIC_URL');
+    const returnBase = `${apiUrl}/api/v1/billing/paypal/return?ref=${encodeURIComponent(payment.reference)}`;
+    let order;
+    try {
+      order = await this.paypal.createOrder(cfg, {
+        reference: payment.reference,
+        amount: q.total.toFixed(2),
+        description: `${q.credits} FoxIndex credits`,
+        returnUrl: `${returnBase}&outcome=success`,
+        cancelUrl: `${returnBase}&outcome=cancel`,
+        vault,
+        customerId: saved?.providerCustomerId ?? (vault ? await this.accounts.paypalCustomerId(user.id) : null),
+        saved: saved?.providerToken ? { kind: saved.type === 'card' ? 'card' : 'paypal', token: saved.providerToken } : null,
+      });
+    } catch (error) {
+      this.logger.error(`PayPal order failed for ${payment.reference}: ${(error as Error).message}`);
+      const declined = saved && error instanceof PayPalApiError && error.status < 500;
+      await this.db
+        .update(payments)
+        .set(declined ? { status: 'rejected', rejectReason: 'Saved method was declined' } : { status: 'expired' })
+        .where(eq(payments.id, payment.id));
+      throw declined
+        ? new ValidationError('PayPal declined the saved method. Try another card or pay without saving.', { reason: 'SAVED_METHOD_DECLINED' })
+        : new AppError(ErrorCode.PROVIDER_ERROR, 'PayPal did not respond. Please try again in a minute.');
+    }
+    await this.db.update(payments).set({ gatewayOrderId: order.id }).where(eq(payments.id, payment.id));
+
+    // A saved method is charged straight away — no redirect.
+    if (order.capture) {
+      const result = await this.settlePayPal(payment.id, order.capture);
+      const fresh = await this.db.query.payments.findFirst({ where: eq(payments.id, payment.id) });
+      if (result === 'failed') throw new ValidationError('PayPal declined the payment. Try another method.', { reason: 'PAYMENT_DECLINED' });
+      return { payment: this.toClientPayment(fresh ?? payment, method.label), redirectUrl: null };
+    }
+    if (!order.approveUrl) {
+      await this.db.update(payments).set({ status: 'expired' }).where(eq(payments.id, payment.id));
+      throw new AppError(ErrorCode.PROVIDER_ERROR, 'PayPal did not start the checkout. Please try again.');
+    }
+    return { payment: this.toClientPayment(payment, method.label), redirectUrl: order.approveUrl };
+  }
+
+  /**
+   * Apply a PayPal capture to a payment: credit it when PayPal says COMPLETED for the
+   * full USD amount, hold it for review on a mismatch, reject it when declined.
+   */
+  private async settlePayPal(paymentId: string, capture: CaptureResult): Promise<'approved' | 'failed' | 'pending'> {
+    const payment = await this.db.query.payments.findFirst({ where: eq(payments.id, paymentId) });
+    if (!payment) return 'failed';
+    if (payment.status === 'approved') return 'approved';
+    if (payment.status !== 'pending') return 'failed';
+
+    if (capture.completed) {
+      const amountOk = capture.amount + 0.01 >= Number(payment.amount);
+      const currencyOk = (capture.currency ?? '').toUpperCase() === 'USD';
+      if (amountOk && currencyOk) {
+        if (capture.captureId) {
+          await this.db
+            .update(payments)
+            .set({ transactionId: capture.captureId })
+            .where(and(eq(payments.id, payment.id), sql`${payments.transactionId} IS NULL`))
+            .catch((error: unknown) => this.logger.warn(`PayPal capture id not stored on ${payment.reference}: ${(error as Error).message}`));
+        }
+        await this.approveInternal(payment.id, null, `PayPal ${capture.captureId ?? ''}`.trim(), capture.raw);
+        if (payment.saveMethod && capture.vault) {
+          await this.accounts.saveVaulted(payment.userId, capture.vault).catch((error: Error) => this.logger.warn(`Could not save PayPal method: ${error.message}`));
+        }
+        return 'approved';
+      }
+      this.logger.warn(`PayPal amount/currency mismatch on ${payment.reference}`);
+      await this.db.update(payments).set({ status: 'under_review', gatewayPayload: capture.raw }).where(and(eq(payments.id, payment.id), eq(payments.status, 'pending')));
+      return 'pending';
+    }
+    if (capture.status === 'DECLINED' || capture.status === 'FAILED') {
+      await this.db
+        .update(payments)
+        .set({ status: 'rejected', rejectReason: 'Payment was declined by PayPal', gatewayPayload: capture.raw })
+        .where(and(eq(payments.id, payment.id), eq(payments.status, 'pending')));
+      return 'failed';
+    }
+    // PENDING (e.g. an eCheck or a PayPal risk review) — the background check picks it up later.
+    return 'pending';
+  }
+
+  /** Shopper came back from PayPal. Nothing in the redirect is trusted: we capture server-to-server. */
+  async handlePayPalReturn(reference: string, outcome: string): Promise<'approved' | 'failed' | 'pending'> {
+    const payment = await this.db.query.payments.findFirst({ where: eq(payments.reference, reference) });
+    if (!payment) return 'failed';
+    if (payment.status === 'approved') return 'approved';
+    if (payment.status !== 'pending') return 'failed';
+    const cfg = this.paypal.config();
+    if (!cfg || !payment.gatewayOrderId) return 'failed';
+
+    if (outcome === 'cancel') {
+      await this.db.update(payments).set({ status: 'rejected', rejectReason: 'Checkout cancelled' }).where(and(eq(payments.id, payment.id), eq(payments.status, 'pending')));
+      return 'failed';
+    }
+    try {
+      return await this.settlePayPal(payment.id, await this.paypal.captureOrder(cfg, payment.gatewayOrderId));
+    } catch (error) {
+      this.logger.warn(`PayPal capture failed for ${reference}: ${(error as Error).message}`);
+      if (error instanceof PayPalApiError && error.issue === 'INSTRUMENT_DECLINED') {
+        await this.db
+          .update(payments)
+          .set({ status: 'rejected', rejectReason: 'Payment was declined by PayPal' })
+          .where(and(eq(payments.id, payment.id), eq(payments.status, 'pending')));
+        return 'failed';
+      }
+      return 'pending';
+    }
+  }
+
+  /** Background re-check of a PayPal order the shopper may have approved without coming back. */
+  private async reconcilePayPal(payment: typeof payments.$inferSelect): Promise<'approved' | 'expired' | 'pending' | 'review'> {
+    const cfg = this.paypal.config();
+    if (!cfg || !payment.gatewayOrderId) return 'pending';
+    const order = await this.paypal.getOrder(cfg, payment.gatewayOrderId).catch((error: Error) => {
+      this.logger.warn(`PayPal reconcile lookup failed for ${payment.reference}: ${error.message}`);
+      return null;
+    });
+    if (!order) return 'pending';
+    const status = String(order.status ?? '');
+    let result: 'approved' | 'failed' | 'pending' = 'pending';
+    if (status === 'COMPLETED') result = await this.settlePayPal(payment.id, this.paypal.orderCapture(order));
+    else if (status === 'APPROVED') {
+      result = await this.paypal
+        .captureOrder(cfg, payment.gatewayOrderId)
+        .then((capture) => this.settlePayPal(payment.id, capture))
+        .catch(() => 'pending' as const);
+    }
+    if (result === 'approved') return 'approved';
+    const fresh = await this.db.query.payments.findFirst({ where: eq(payments.id, payment.id), columns: { status: true } });
+    if (fresh?.status === 'under_review') return 'review';
+    if (fresh?.status === 'pending' && payment.expiresAt && payment.expiresAt.getTime() < Date.now() && status !== 'APPROVED' && status !== 'COMPLETED') {
+      await this.db.update(payments).set({ status: 'expired' }).where(and(eq(payments.id, payment.id), eq(payments.status, 'pending')));
+      return 'expired';
+    }
+    return 'pending';
+  }
+
+  /**
+   * Background re-check for a checkout whose shopper never came back (closed the
+   * tab, lost connection). Credits it if the gateway confirms payment; expires it once
+   * the checkout window has passed. Safe to repeat — approval is idempotent.
+   */
+  async reconcileGatewayPayment(reference: string): Promise<'approved' | 'expired' | 'pending' | 'review'> {
+    const payment = await this.db.query.payments.findFirst({ where: eq(payments.reference, reference) });
+    if (payment?.status === 'pending' && payment.gatewayOrderId) return this.reconcilePayPal(payment);
+    const cfg = this.aamarpay.config();
+    if (!payment || payment.status !== 'pending' || !cfg) return 'pending';
+
+    const result = await this.aamarpay.verify(cfg, reference).catch((error: Error) => {
+      this.logger.warn(`aamarPay reconcile verify failed for ${reference}: ${error.message}`);
+      return null;
+    });
+    if (result?.paid) {
+      const amountOk = result.amount + 0.01 >= Number(payment.amount);
+      const currencyOk = !result.currency || result.currency.toUpperCase() === payment.currency;
+      if (amountOk && currencyOk) {
+        await this.approveInternal(payment.id, null, `Gateway ${result.gatewayTxnId ?? ''} · confirmed in background`.trim(), result.raw);
+        return 'approved';
+      }
+      this.logger.warn(`aamarPay amount/currency mismatch on ${reference} (background check)`);
+      await this.db.update(payments).set({ status: 'under_review', gatewayPayload: result.raw }).where(and(eq(payments.id, payment.id), eq(payments.status, 'pending')));
+      return 'review';
+    }
+    // Unpaid (or gateway unreachable) — keep trying until the checkout window closes.
+    if (result && payment.expiresAt && payment.expiresAt.getTime() < Date.now()) {
+      await this.db.update(payments).set({ status: 'expired', gatewayPayload: result.raw }).where(and(eq(payments.id, payment.id), eq(payments.status, 'pending')));
+      return 'expired';
+    }
+    return 'pending';
+  }
+
+  /** References of gateway checkouts still waiting for a result, oldest first. */
+  async pendingGatewayReferences(limit = 50): Promise<string[]> {
+    const rows = await this.db.execute<{ reference: string }>(sql`
+      SELECT p.reference FROM ${payments} p JOIN ${paymentMethods} m ON m.id = p.method_id
+      WHERE p.status = 'pending' AND m.gateway IN ('aamarpay', 'paypal')
+        AND p.created_at < now() - interval '2 minutes'
+        AND p.created_at > now() - interval '3 days'
+      ORDER BY p.created_at ASC
+      LIMIT ${limit}
+    `);
+    return rows.rows.map((r) => r.reference);
   }
 
   // ── Staff review ───────────────────────────────────────────────────────

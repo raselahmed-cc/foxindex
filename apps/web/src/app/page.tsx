@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { SiteNav } from '@/components/marketing/site-nav';
 import { Pricing } from '@/components/marketing/pricing';
 import { VisitorChat } from '@/components/marketing/visitor-chat';
+import { ReviewsSection } from '@/components/marketing/customer-reviews';
 
 export const metadata: Metadata = {
   title: 'FoxIndex — Get your new pages into Google faster',
@@ -34,7 +35,7 @@ const ENGINES = ['Google', 'Bing', 'Yandex', 'Naver', 'Seznam', 'Yep'];
 const STEPS = [
   { k: 'Step 1', title: 'Create your account', body: 'Sign up and confirm your email. A real account manager approves you — usually within a few hours — and you get 100 free credits.' },
   { k: 'Step 2', title: 'Submit URLs', body: 'Paste a list, upload a CSV, point us at your sitemap, or call the REST API. Each URL goes to every engine you choose.' },
-  { k: 'Step 3', title: 'Track every URL', body: 'See the status of each URL per engine. If Google turns a submission down, its credit is refunded automatically.' },
+  { k: 'Step 3', title: 'Track every URL', body: 'See the status of each URL per engine. If a URL can’t be submitted, its credit is refunded automatically.' },
 ];
 
 const FEATURES = [
@@ -51,7 +52,7 @@ const FAQ = [
   },
   {
     q: 'Does one credit mean one URL?',
-    a: 'One credit covers one URL submitted to Google. Bing, Yandex, Naver, Seznam and Yep are included free with every submission.',
+    a: 'Yes. One credit covers one URL, and that URL goes to Google, Bing, Yandex, Naver, Seznam and Yep in a single step. If it can’t be submitted, the credit comes back automatically.',
   },
   {
     q: 'What do I need for Google submissions?',
@@ -75,7 +76,7 @@ export default function HomePage() {
 
         <section className="grid items-center gap-12 py-14 lg:grid-cols-[1.05fr_1fr] lg:py-20">
           <div>
-            <h1 className="text-[40px] leading-[1.06] font-semibold tracking-tight text-balance sm:text-[56px]">Get your new pages into Google in hours, not weeks.</h1>
+            <h1 className="text-[40px] leading-[1.06] font-semibold tracking-tight text-balance sm:text-[56px]">Get your new pages into Google in minutes, not weeks.</h1>
             <p className="mt-5 max-w-xl text-lg leading-relaxed text-auth-text2">
               Paste your URLs. FoxIndex submits them to Google, Bing, Yandex and three more search engines in one step — and shows you the status of every single URL.
             </p>
@@ -101,7 +102,7 @@ export default function HomePage() {
             <div className="flex flex-wrap gap-x-6 gap-y-1 border-t border-auth-line px-4 py-3 text-[13px] text-auth-text3">
               <span><b className="text-auth-text">6</b> search engines</span>
               <span><b className="text-auth-text">1</b> credit per URL</span>
-              <span>Refund if Google declines</span>
+              <span>Refund if a URL can’t be submitted</span>
             </div>
           </div>
         </section>
@@ -137,6 +138,8 @@ export default function HomePage() {
             ))}
           </div>
         </section>
+
+        <ReviewsSection />
 
         <section id="pricing" className="scroll-mt-6 pb-20">
           <Pricing />

@@ -20,6 +20,7 @@ const SECTIONS = [
   { id: 'notifications', label: 'Notifications', icon: 'bell' },
   { id: 'defaults', label: 'Submission defaults', icon: 'upload', clientOnly: true },
   { id: 'manager', label: 'Account manager', icon: 'chat', clientOnly: true },
+  { id: 'review', label: 'Your review', icon: 'star', clientOnly: true },
   { id: 'danger', label: 'Danger zone', icon: 'info' },
 ] as const;
 
@@ -449,6 +450,114 @@ function DangerSection({ profile }: { profile: Profile }) {
   );
 }
 
+interface MyReview {
+  rating: number;
+  body: string;
+  displayName: string;
+  company: string | null;
+  jobTitle: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+}
+
+const REVIEW_STATUS: Record<MyReview['status'], { tone: 'warn' | 'ok' | 'muted'; label: string }> = {
+  pending: { tone: 'warn', label: 'Waiting for approval' },
+  approved: { tone: 'ok', label: 'Published' },
+  rejected: { tone: 'muted', label: 'Not published' },
+};
+
+function shortName(name: string): string {
+  const [first, ...rest] = name.trim().split(/\s+/);
+  return rest.length ? `${first} ${rest[rest.length - 1][0]}.` : first;
+}
+
+function ReviewSection({ profile }: { profile: Profile }) {
+  const toast = useToast();
+  const mine = useApi<MyReview | null>('/reviews/mine');
+  const [form, setForm] = useState({ rating: 5, body: '', displayName: shortName(profile.name), company: '', jobTitle: '', consent: false });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const r = mine.data;
+    if (r) setForm({ rating: r.rating, body: r.body, displayName: r.displayName, company: r.company ?? '', jobTitle: r.jobTitle ?? '', consent: true });
+  }, [mine.data]);
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    try {
+      const saved = await apiClient.put<MyReview>('/reviews/mine', {
+        ...form,
+        company: form.company.trim() || undefined,
+        jobTitle: form.jobTitle.trim() || undefined,
+      });
+      mine.setData(saved);
+      toast('Thanks — your review was sent for approval');
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const status = mine.data ? REVIEW_STATUS[mine.data.status] : null;
+  return (
+    <Section
+      id="review"
+      title="Your review"
+      subtitle="Tell other site owners how FoxIndex works for you. Our team checks every review before it appears on our website."
+      footer={
+        <Button variant="primary" loading={saving} disabled={form.body.trim().length < 20 || form.displayName.trim().length < 2 || !form.consent} onClick={() => void save()}>
+          {mine.data ? 'Update review' : 'Send review'}
+        </Button>
+      }
+    >
+      {status && <Pill tone={status.tone} className="mb-3.5">{status.label}</Pill>}
+      <div className="mb-3.5 flex items-center gap-1" role="radiogroup" aria-label="Rating">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            type="button"
+            role="radio"
+            aria-checked={form.rating === n}
+            aria-label={`${n} star${n === 1 ? '' : 's'}`}
+            onClick={() => setForm({ ...form, rating: n })}
+            className={cn('text-2xl leading-none', n <= form.rating ? 'text-auth-fox' : 'text-auth-line2')}
+          >
+            ★
+          </button>
+        ))}
+      </div>
+      <Field label="Review" hint={`${form.body.trim().length}/600 · at least 20 characters`}>
+        <textarea
+          rows={4}
+          maxLength={600}
+          placeholder="What changed for your site after using FoxIndex?"
+          value={form.body}
+          onChange={(e) => setForm({ ...form, body: e.target.value })}
+          className="w-full resize-y rounded-md border border-auth-line bg-auth-bg px-3.5 py-2.5 text-[13.5px] text-auth-text outline-none placeholder:text-auth-text3 focus:border-auth-accent focus:ring-3 focus:ring-auth-accent-soft"
+        />
+      </Field>
+      <div className="grid gap-x-3.5 sm:grid-cols-3">
+        <Field label="Name to show">
+          <Input maxLength={60} value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} />
+        </Field>
+        <Field label={<>Job title <span className="text-auth-text3">(optional)</span></>}>
+          <Input maxLength={80} placeholder="e.g. SEO lead" value={form.jobTitle} onChange={(e) => setForm({ ...form, jobTitle: e.target.value })} />
+        </Field>
+        <Field label={<>Company <span className="text-auth-text3">(optional)</span></>}>
+          <Input maxLength={80} placeholder="e.g. Your company" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} />
+        </Field>
+      </div>
+      <Checkbox checked={form.consent} onChange={(v) => setForm({ ...form, consent: v })}>
+        FoxIndex may show this review, with the name, job title and company above, on its website.
+      </Checkbox>
+      {error && <p role="alert" className="mt-2 text-[12.5px] text-auth-bad">{error}</p>}
+      {mine.data && <p className="mt-2 text-[12px] text-auth-text3">Editing your review sends it back for approval.</p>}
+    </Section>
+  );
+}
+
 export default function SettingsPage() {
   const { profile } = useAccount();
   const [active, setActive] = useState('profile');
@@ -500,6 +609,7 @@ export default function SettingsPage() {
               <NotificationsSection profile={profile} />
               {isClient && <DefaultsSection profile={profile} />}
               {isClient && <ManagerSection profile={profile} />}
+              {isClient && profile.status === 'active' && <ReviewSection profile={profile} />}
               <DangerSection profile={profile} />
             </>
           )}

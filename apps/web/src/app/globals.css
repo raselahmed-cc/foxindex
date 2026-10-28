@@ -1,5 +1,24 @@
 @import 'tailwindcss';
 
+/* Tailwind v4 dropped the pointer cursor on buttons; restore it for everything clickable. */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='tab'],
+  summary,
+  select:not(:disabled),
+  label[for],
+  input[type='checkbox']:not(:disabled),
+  input[type='radio']:not(:disabled),
+  input[type='file']:not(:disabled) {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled='true'] {
+    cursor: not-allowed;
+  }
+}
+
 @theme {
   --color-background: #ffffff;
   --color-foreground: #0a0a0a;

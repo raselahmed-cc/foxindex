@@ -21,6 +21,7 @@ const LOGO: Record<string, { bg: string; text: string; label: string }> = {
   rocket: { bg: '#8C3494', text: '#fff', label: 'Rocket' },
   card: { bg: '#1A1F71', text: '#fff', label: 'CARD' },
   crypto: { bg: '#26A17B', text: '#fff', label: 'USDT' },
+  paypal: { bg: '#003087', text: '#fff', label: 'PayPal' },
   bank: { bg: 'var(--color-auth-surface2)', text: 'var(--color-auth-text2)', label: 'BANK' },
 };
 
@@ -130,7 +131,7 @@ export function MethodList({
             <span className="min-w-0 flex-1">
               <b className="block text-[13.5px] font-medium">{m.label}</b>
               <small className="block text-xs text-auth-text3">
-                {!m.available ? 'Not available yet' : m.isManual ? `Manual · approved by your manager` : `Instant · ${m.gateway === 'aamarpay' ? 'aamarPay' : 'online'}`}
+                {!m.available ? 'Not available yet' : m.isManual ? `Manual · approved by your manager` : `Instant · ${m.gateway === 'aamarpay' ? 'aamarPay' : m.gateway === 'paypal' ? 'PayPal · USD · saved cards' : 'online'}`}
               </small>
             </span>
             <span className={cn('text-[11.5px] whitespace-nowrap', m.isManual ? 'text-auth-warn' : 'text-auth-text3')}>

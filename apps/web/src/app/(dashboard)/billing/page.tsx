@@ -261,12 +261,17 @@ export default function BillingPage() {
     <>
       <DashboardTopbar
         title="Credits & billing"
-        subtitle="1 credit = 1 URL to Google · Bing, Yandex & other engines are always free · credits never expire"
+        subtitle="1 credit = 1 URL, sent to Google, Bing, Yandex and three more engines · credits never expire"
         search={false}
         action={
-          <Link href="/chat" className="rounded-md border border-auth-line2 px-3.5 py-2 text-[13.5px] font-medium whitespace-nowrap hover:bg-auth-surface2">
-            Ask {managerFirst} to add credit
-          </Link>
+          <>
+            <Link href="/billing/methods" className="rounded-md border border-auth-line2 px-3.5 py-2 text-[13.5px] font-medium whitespace-nowrap hover:bg-auth-surface2">
+              Payment methods
+            </Link>
+            <Link href="/chat" className="hidden rounded-md border border-auth-line2 px-3.5 py-2 text-[13.5px] font-medium whitespace-nowrap hover:bg-auth-surface2 sm:inline-block">
+              Ask {managerFirst} to add credit
+            </Link>
+          </>
         }
       />
 

@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { FoxLogo } from '@/components/fox-logo';
+import { ReviewSpotlight } from '@/components/marketing/customer-reviews';
 import { COUNTRIES } from '@/lib/countries';
 import { apiClient, ApiError } from '@/lib/api-client';
 
@@ -195,18 +196,7 @@ export default function SignupPage() {
             ))}
           </div>
 
-          <div className="mt-8 max-w-[520px] rounded-2xl border border-auth-line bg-auth-surface p-6">
-            <p className="text-base leading-relaxed text-auth-text">
-              &ldquo;We publish 40 product pages a day. Before, half sat unindexed for a month. Now they&apos;re live by the next morning.&rdquo;
-            </p>
-            <div className="mt-4 flex items-center gap-2.5 text-[13px] text-auth-text3">
-              <span className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-auth-accent to-[#9B6BFF] text-[11px] font-semibold text-white">TH</span>
-              <div>
-                <b className="block font-medium text-auth-text2">Tanvir H.</b>
-                Head of SEO, TechBazar
-              </div>
-            </div>
-          </div>
+          <ReviewSpotlight className="mt-8 max-w-[520px]" />
         </div>
 
         <div className="flex gap-4.5 text-[13px] text-auth-text3">

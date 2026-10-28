@@ -21,6 +21,7 @@ export const paymentMethodTypeEnum = pgEnum('payment_method_type', [
   'crypto',
   'card',
   'gateway',
+  'paypal',
 ]);
 export const paymentStatusEnum = pgEnum('payment_status', [
   'pending',

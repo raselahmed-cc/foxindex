@@ -80,6 +80,7 @@ export function navFor(role: Role): NavGroup[] {
         { href: '/admin/credits', label: 'Credit management', short: 'Credits', icon: 'coin' },
         { href: '/admin/payments', label: 'Payments', short: 'Payments', icon: 'card', badgeKey: 'pendingPayments' },
         { href: '/tickets', label: 'All tickets', short: 'Tickets', icon: 'ticket', badgeKey: 'unreadTickets' },
+        { href: '/admin/reviews', label: 'Customer reviews', short: 'Reviews', icon: 'star' },
         { href: '/admin/audit', label: 'Audit log', short: 'Audit', icon: 'list' },
       ],
     },
