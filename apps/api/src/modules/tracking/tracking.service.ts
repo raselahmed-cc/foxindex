@@ -1,3 +1,4 @@
+import { safeFetch } from '@foxindex/ssrf-fetch';
 import { randomBytes } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm';
@@ -60,6 +61,7 @@ export class TrackingService {
       ),
       per_url AS (
         SELECT u.id, u.url, u.site_id, st.domain, u.created_at, u.indexed_at,
+          u.index_status, u.index_coverage, u.last_crawled_at, u.index_checked_at, u.next_index_check_at, u.index_note,
           ${STATUS_SQL} AS status,
           coalesce(max(l.created_at), u.created_at) AS last_activity,
           coalesce(jsonb_object_agg(l.kind, jsonb_build_object('status', l.status, 'attempts', l.attempts, 'error', l.last_error, 'submittedAt', l.submitted_at, 'updatedAt', l.created_at)) FILTER (WHERE l.kind IS NOT NULL), '{}'::jsonb) AS engines
@@ -73,10 +75,44 @@ export class TrackingService {
       )`;
   }
 
-  private toUrlDto(r: { id: string; url: string; site_id: string; domain: string; created_at: string; indexed_at: string | null; status: UrlStatus; last_activity: string; engines: Record<string, EngineState> }) {
+  private toUrlDto(r: {
+    id: string;
+    url: string;
+    site_id: string;
+    domain: string;
+    created_at: string;
+    indexed_at: string | null;
+    index_status: string | null;
+    index_coverage: string | null;
+    last_crawled_at: string | null;
+    index_checked_at: string | null;
+    next_index_check_at: string | null;
+    index_note: string | null;
+    status: UrlStatus;
+    last_activity: string;
+    engines: Record<string, EngineState>;
+  }) {
     const engines: Partial<Record<EngineKey, EngineState>> = {};
     for (const [kind, state] of Object.entries(r.engines ?? {})) if (ENGINE_OF[kind]) engines[ENGINE_OF[kind]] = state;
-    return { id: r.id, url: r.url, site: { id: r.site_id, domain: r.domain }, status: r.status, createdAt: r.created_at, indexedAt: r.indexed_at, lastActivityAt: r.last_activity, engines };
+    return {
+      id: r.id,
+      url: r.url,
+      site: { id: r.site_id, domain: r.domain },
+      status: r.status,
+      createdAt: r.created_at,
+      indexedAt: r.indexed_at,
+      lastActivityAt: r.last_activity,
+      engines,
+      // Google's own answer (Search Console URL Inspection); null status = not checked yet.
+      google: {
+        status: r.index_status,
+        coverage: r.index_coverage,
+        lastCrawledAt: r.last_crawled_at,
+        checkedAt: r.index_checked_at,
+        nextCheckAt: r.next_index_check_at,
+        note: r.index_note,
+      },
+    };
   }
 
   async listUrls(caller: Caller, query: UrlListQuery) {
@@ -152,6 +188,18 @@ export class TrackingService {
     );
   }
 
+  /** Ask the worker to check Google index status for these URLs within about a minute. Free. */
+  async requestIndexCheck(caller: Caller, ids: string[]) {
+    const siteId = this.siteFilter(caller);
+    const rows = await this.db
+      .update(urls)
+      .set({ nextIndexCheckAt: new Date() })
+      .where(and(eq(urls.userId, caller.userId), inArray(urls.id, ids), siteId ? eq(urls.siteId, siteId) : undefined))
+      .returning({ id: urls.id });
+    if (rows.length === 0) throw new NotFoundError('URL');
+    return { queued: rows.length };
+  }
+
   /** Re-send chosen URLs as a new batch (charges credits again, like any submit). */
   async resubmit(caller: Caller, input: ResubmitUrlsInput) {
     const siteId = this.siteFilter(caller);
@@ -171,9 +219,9 @@ export class TrackingService {
 
   async listSites(caller: Caller) {
     const siteId = this.siteFilter(caller);
-    const result = await this.db.execute<{ id: string; domain: string; created_at: string; total: string; indexed: string; submitted: string; queued: string; failed: string; last_activity: string | null }>(sql`
+    const result = await this.db.execute<{ id: string; domain: string; created_at: string; indexnow_key: string; indexnow_verified_at: string | null; indexnow_checked_at: string | null; indexnow_last_error: string | null; total: string; indexed: string; submitted: string; queued: string; failed: string; last_activity: string | null }>(sql`
       ${this.perUrlCte(caller.userId, sql`true`)}
-      SELECT st.id, st.domain, st.created_at,
+      SELECT st.id, st.domain, st.created_at, st.indexnow_key, st.indexnow_verified_at, st.indexnow_checked_at, st.indexnow_last_error,
         count(p.id) AS total,
         count(p.id) FILTER (WHERE p.status = 'indexed') AS indexed,
         count(p.id) FILTER (WHERE p.status = 'submitted') AS submitted,
@@ -189,7 +237,46 @@ export class TrackingService {
       createdAt: r.created_at,
       lastActivityAt: r.last_activity,
       counts: { total: Number(r.total), indexed: Number(r.indexed), submitted: Number(r.submitted), queued: Number(r.queued), failed: Number(r.failed) },
+      indexnow: {
+        key: r.indexnow_key,
+        keyFileUrl: `https://${r.domain}/${r.indexnow_key}.txt`,
+        verifiedAt: r.indexnow_verified_at,
+        checkedAt: r.indexnow_checked_at,
+        lastError: r.indexnow_last_error,
+      },
     }));
+  }
+
+  /**
+   * IndexNow engines only act on URLs from a site that hosts its key at
+   * https://<domain>/<key>.txt. Fetch it (SSRF-safe) and record the result.
+   */
+  async verifyIndexNow(caller: Caller, siteId: string) {
+    const site = await this.db.query.sites.findFirst({ where: and(eq(sites.id, siteId), eq(sites.userId, caller.userId)) });
+    if (!site) throw new NotFoundError('Site');
+    const hosts = site.domain.startsWith('www.') ? [site.domain] : [site.domain, `www.${site.domain}`];
+    let error = '';
+    for (const host of hosts) {
+      const url = `https://${host}/${site.indexnowKey}.txt`;
+      const res = await safeFetch(url, { timeoutMs: 8000, maxResponseBytes: 4096, maxRedirects: 3 });
+      if (res.ok && res.body?.trim() === site.indexnowKey) {
+        error = '';
+        break;
+      }
+      error ||= res.error
+        ? `Couldn't reach ${host} (${res.error === 'TIMEOUT' ? 'it took too long to answer' : res.error === 'DNS_ERROR' ? 'the domain doesn\'t resolve' : res.error === 'SSRF_BLOCKED' ? 'it points to a private address' : 'connection failed'}).`
+        : res.statusCode && res.statusCode >= 400
+          ? `${url} returned HTTP ${res.statusCode} — the file isn't there yet.`
+          : `${url} was found but doesn't contain exactly the key. It must hold only: ${site.indexnowKey}`;
+    }
+    const now = new Date();
+    const [row] = await this.db
+      .update(sites)
+      .set({ indexnowCheckedAt: now, indexnowVerifiedAt: error ? null : (site.indexnowVerifiedAt ?? now), indexnowLastError: error || null })
+      .where(eq(sites.id, site.id))
+      .returning();
+    await this.auditLog.record({ actorId: caller.userId, action: error ? 'site.indexnow_check_failed' : 'site.indexnow_verified', targetType: 'site', targetId: site.id, metadata: { domain: site.domain } });
+    return { verified: !error, verifiedAt: row.indexnowVerifiedAt, checkedAt: row.indexnowCheckedAt, lastError: row.indexnowLastError };
   }
 
   async createSite(caller: Caller, input: CreateSiteInput) {

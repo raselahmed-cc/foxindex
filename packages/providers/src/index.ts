@@ -5,4 +5,5 @@ export * from './indexnow/indexnow.provider';
 export * from './indexnow/indexnow.constants';
 export * from './indexnow/generate-key';
 export * from './google/google-indexing.client';
+export * from './google/google-oauth';
 export * from './credentials/secret-box';

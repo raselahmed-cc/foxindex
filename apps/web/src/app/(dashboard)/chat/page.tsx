@@ -412,13 +412,14 @@ function TransferSelect({ clientId, currentManagerId, onDone }: { clientId: stri
   );
 }
 
-function StaffInbox({ chat, supervising }: { chat: ChatState; supervising: boolean }) {
+function StaffInbox({ chat, supervising, openThread = false }: { chat: ChatState; supervising: boolean; openThread?: boolean }) {
   const me = useUser();
   const { refreshBadges } = useNav();
   const stats = useApi<{ avgFirstReplyMinutesToday: number | null; repliedToday: number; awaitingReply: number }>(supervising ? null : '/chat/stats');
   const [filter, setFilter] = useState<'unread' | 'all' | 'online'>('all');
   const [query, setQuery] = useState('');
-  const [mobileThread, setMobileThread] = useState(false);
+  // Opened from a notification link: on phones, go straight to the thread.
+  const [mobileThread, setMobileThread] = useState(openThread);
   const [creditFor, setCreditFor] = useState<Conversation['peer'] | null>(null);
   const composerRef = useRef<ComposerHandle>(null);
 
@@ -614,10 +615,23 @@ function ChatPageInner() {
   const isClient = me.role === 'client';
   const canSupervise = me.role === 'admin' || me.role === 'superadmin';
   const [scope, setScope] = useState<'mine' | 'all'>(canSupervise ? 'all' : 'mine');
-  const chat = useChat(me.id, { scope });
+  const chat = useChat(me.id, { scope, initialId: params.get('c') });
   const managerFirst = profile?.manager?.name.split(' ')[0];
   const toTicket = useToTicket(isClient ? chat.conversations?.[0]?.id : undefined);
   const visitorUnread = useVisitorUnread(!isClient);
+  const router = useRouter();
+  const [popupRedirect, setPopupRedirect] = useState(false);
+  useEffect(() => {
+    if (!isClient || !window.matchMedia('(min-width: 768px)').matches) return;
+    setPopupRedirect(true);
+    try {
+      sessionStorage.setItem('fx-chat-open', '1');
+    } catch {
+      /* ignore */
+    }
+    router.replace('/dashboard');
+  }, [isClient, router]);
+  if (popupRedirect) return null;
 
   return (
     <>
@@ -650,7 +664,7 @@ function ChatPageInner() {
       ) : tab === 'visitors' ? (
         <VisitorInbox initialId={params.get('id')} />
       ) : (
-        <StaffInbox key={scope} chat={chat} supervising={canSupervise && scope === 'all'} />
+        <StaffInbox key={scope} chat={chat} supervising={canSupervise && scope === 'all'} openThread={Boolean(params.get('c'))} />
       )}
     </>
   );

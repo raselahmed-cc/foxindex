@@ -377,7 +377,7 @@ function BuyCredits() {
               )}
 
               <div className="mt-3.5 flex flex-wrap gap-4 text-xs text-auth-text3">
-                {['Payments verified server-side', 'Credits never expire', 'Refunded if a URL can’t be submitted', 'Receipt for every payment'].map((t) => (
+                {['Payments verified server-side', 'Credits never expire', 'Refunded if a technical error stops a URL', 'Receipt for every payment'].map((t) => (
                   <span key={t} className="flex items-center gap-1.5"><Icon.check className="h-3.25 w-3.25 text-auth-ok" />{t}</span>
                 ))}
               </div>

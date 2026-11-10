@@ -10,6 +10,13 @@ export const sites = pgTable(
       .references(() => users.id),
     domain: text('domain').notNull(),
     indexnowKey: text('indexnow_key').notNull(),
+    /** Set when https://<domain>/<key>.txt was found with the right key — IndexNow engines ignore URLs from unverified sites. */
+    indexnowVerifiedAt: timestamp('indexnow_verified_at', { withTimezone: true }),
+    indexnowCheckedAt: timestamp('indexnow_checked_at', { withTimezone: true }),
+    /** Why the last check failed, in words the client can act on. */
+    indexnowLastError: text('indexnow_last_error'),
+    /** Search Console property that worked for index checks, e.g. "sc-domain:example.com". */
+    gscProperty: text('gsc_property'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [uniqueIndex('sites_user_domain_unique').on(table.userId, table.domain)],

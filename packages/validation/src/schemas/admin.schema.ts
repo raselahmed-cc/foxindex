@@ -22,21 +22,24 @@ export type AdjustCreditsInput = z.infer<typeof adjustCreditsSchema>;
 export const creditSettingsSchema = z.object({
   /** Charged for every URL accepted into a batch (all engines included). */
   creditsPerUrl: z.number().int().min(0).max(100),
-  /** Largest single add/deduct an account manager may make. */
+  /** Free credits a new account gets when it is approved (staff can change it per approval). */
+  starterCredits: z.number().int().min(0).max(100_000),
+  /** Largest single add/deduct an account manager may make (0 = no limit). */
   managerMaxPerAdjustment: z.number().int().min(0).max(1_000_000),
-  /** Total an account manager may add or remove per day, across all clients. */
+  /** Total an account manager may add or remove per day, across all clients (0 = no limit). */
   managerDailyLimit: z.number().int().min(0).max(10_000_000),
   managersCanDeduct: z.boolean(),
-  /** Largest single add/deduct an admin may make (superadmin has no limit). */
+  /** Largest single add/deduct an admin may make (0 = no limit; superadmin is never limited). */
   adminMaxPerAdjustment: z.number().int().min(0).max(10_000_000),
 });
 export type CreditSettings = z.infer<typeof creditSettingsSchema>;
 
 export const DEFAULT_CREDIT_SETTINGS: CreditSettings = {
   creditsPerUrl: 1,
-  managerMaxPerAdjustment: 5_000,
-  managerDailyLimit: 20_000,
-  managersCanDeduct: false,
+  starterCredits: 10,
+  managerMaxPerAdjustment: 100_000,
+  managerDailyLimit: 0,
+  managersCanDeduct: true,
   adminMaxPerAdjustment: 100_000,
 };
 

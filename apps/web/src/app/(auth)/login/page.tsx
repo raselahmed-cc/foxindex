@@ -114,15 +114,15 @@ export default function LoginPage() {
 
         <div className="flex gap-4.5 text-[13px] text-auth-text3">
           <span>© 2026 FoxIndex</span>
-          <a href="#" className="hover:text-auth-text">
-            Status
-          </a>
-          <a href="#" className="hover:text-auth-text">
+          <Link href="/privacy" className="hover:text-auth-text">
             Privacy
-          </a>
-          <a href="#" className="hover:text-auth-text">
-            Help
-          </a>
+          </Link>
+          <Link href="/terms" className="hover:text-auth-text">
+            Terms
+          </Link>
+          <Link href="/" className="hover:text-auth-text">
+            Home
+          </Link>
         </div>
       </aside>
 

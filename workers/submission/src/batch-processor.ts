@@ -14,8 +14,9 @@ import {
   type Database,
 } from '@foxindex/database';
 import { decryptSecret, type GoogleIndexingClient, type GoogleServiceAccount, type IndexNowProvider } from '@foxindex/providers';
+import { connectDailyQuota, connectionFor, ConnectionTokens, loadConnections, type GoogleOAuthClient } from './google-connections';
 
-/** Per-URL tries before a submission is given up (and its credits refunded). */
+/** Per-URL tries before a technical failure is given up on (and its credits refunded). */
 export const MAX_URL_ATTEMPTS = 6;
 /** IndexNow accepts up to 10,000 URLs per request. */
 const INDEXNOW_CHUNK = 10_000;
@@ -27,7 +28,9 @@ export interface ProcessorDeps {
   redis: IORedis;
   /** Factory so a provider row's `submitEndpoint` override is honoured. */
   indexNow: (endpoint?: string) => Pick<IndexNowProvider, 'submit'>;
-  google: Pick<GoogleIndexingClient, 'publish'>;
+  google: Pick<GoogleIndexingClient, 'publish'> & Partial<Pick<GoogleIndexingClient, 'publishWithToken'>>;
+  /** Set when "Connect Google Search Console" is configured — customers' own authorizations are used first. */
+  googleOAuth?: GoogleOAuthClient | null;
   encryptionKey: string;
   logger: Logger;
   now?: () => Date;
@@ -36,6 +39,8 @@ export interface ProcessorDeps {
 export interface BatchRunResult {
   submitted: number;
   failed: number;
+  /** Refused by the engine for a site/URL reason — not refunded. */
+  rejected: number;
   retrying: number;
   /** Google rows left queued because every service account is out of quota (or none exist). */
   waitingForQuota: number;
@@ -44,10 +49,22 @@ export interface BatchRunResult {
   done: boolean;
 }
 
-type Outcome = { id: string; status: 'submitted' } | { id: string; status: 'failed' | 'retry'; error: string } | { id: string; status: 'wait'; error: string };
+/**
+ * Refund policy: credits come back only for a technical failure — our system, the
+ * search engine's API or the network kept the URL from being submitted. A URL the
+ * engine refused because of the site or the URL itself ('rejected': not an owner in
+ * Search Console, IndexNow key file missing, URL outside the site) is not refunded,
+ * and neither is a URL that was submitted but not indexed (indexing is the engine's call).
+ */
+type Outcome =
+  | { id: string; status: 'submitted' }
+  | { id: string; status: 'failed' | 'retry' | 'rejected'; error: string }
+  | { id: string; status: 'wait'; error: string };
 
 interface PendingRow {
   id: string;
+  urlId: string;
+  userId: string;
   url: string;
   host: string;
   indexnowKey: string;
@@ -70,6 +87,8 @@ async function loadPending(db: Database, batchId: string): Promise<PendingRow[]>
   return db
     .select({
       id: urlSubmissions.id,
+      urlId: urlSubmissions.urlId,
+      userId: urlSubmissions.userId,
       url: urls.url,
       host: sites.domain,
       indexnowKey: sites.indexnowKey,
@@ -115,23 +134,31 @@ async function submitIndexNow(deps: ProcessorDeps, rows: PendingRow[]): Promise<
       });
       if (result.success) {
         out.push(...part.map((r) => ({ id: r.id, status: 'submitted' as const })));
+      } else if (result.retryable) {
+        const error = `IndexNow: ${result.errorMessage ?? result.errorCode ?? 'temporary error'}`;
+        out.push(...part.map((r) => ({ id: r.id, status: 'retry' as const, error })));
+      } else if (result.providerStatusCode === 403) {
+        // The engines couldn't verify the site's key file — a site setup issue, not ours.
+        const error = `Rejected by IndexNow: the key file https://${host}/${indexnowKey}.txt wasn't found or doesn't match. Add it to your site (see Sites), then resubmit.`;
+        out.push(...part.map((r) => ({ id: r.id, status: 'rejected' as const, error })));
+      } else if (result.providerStatusCode === 422) {
+        const error = `Rejected by IndexNow: the URL doesn't belong to ${host} or the key isn't valid for it.`;
+        out.push(...part.map((r) => ({ id: r.id, status: 'rejected' as const, error })));
       } else {
-        const error = `IndexNow: ${result.errorMessage ?? result.errorCode ?? 'rejected'}`;
-        const rejected = new Map(result.rejectedUrls.map((x) => [x.url, x.reason]));
-        for (const r of part) {
-          out.push({ id: r.id, status: result.retryable ? 'retry' : 'failed', error: rejected.get(r.url) ? `IndexNow: ${rejected.get(r.url)}` : error });
-        }
+        // 400 (malformed request) or a wrong credential type means our request was wrong — technical.
+        const error = `IndexNow: ${result.errorMessage ?? result.errorCode ?? 'request failed'}`;
+        out.push(...part.map((r) => ({ id: r.id, status: 'failed' as const, error })));
       }
     }
   }
   return out;
 }
 
-interface Account extends GoogleServiceAccount {
+export interface Account extends GoogleServiceAccount {
   dailyQuota: number;
 }
 
-async function loadAccounts(deps: ProcessorDeps): Promise<Account[]> {
+export async function loadAccounts(deps: Pick<ProcessorDeps, 'db' | 'encryptionKey' | 'logger'>): Promise<Account[]> {
   const rows = await deps.db.select().from(googleServiceAccounts).where(eq(googleServiceAccounts.isActive, true)).orderBy(asc(googleServiceAccounts.createdAt));
   const accounts: Account[] = [];
   for (const r of rows) {
@@ -144,7 +171,58 @@ async function loadAccounts(deps: ProcessorDeps): Promise<Account[]> {
   return accounts;
 }
 
+/**
+ * Google submission: first through the customer's own "Connect Google" authorization when it
+ * owns the URL's property (no service-account setup needed), then FoxIndex's service accounts.
+ */
 async function submitGoogle(deps: ProcessorDeps, rows: PendingRow[]): Promise<{ outcomes: Outcome[]; noAccounts: boolean }> {
+  const viaConnection: Outcome[] = [];
+  let rest = rows;
+  if (rows.length && deps.googleOAuth && deps.google.publishWithToken) {
+    const conns = await loadConnections(deps.db, rows.map((r) => r.userId));
+    if (conns.size) {
+      const tokens = new ConnectionTokens(deps.db, deps.googleOAuth, deps.encryptionKey);
+      const quotaKey = `quota:gconnect:${utcDay(deps.now?.() ?? new Date())}`;
+      rest = [];
+      for (const row of rows) {
+        const match = connectionFor(conns.get(row.userId), row.url);
+        const token = match ? await tokens.token(match.conn) : null;
+        if (!match || !token) {
+          rest.push(row);
+          continue;
+        }
+        const used = await deps.redis.incr(quotaKey);
+        if (used === 1) await deps.redis.expire(quotaKey, 2 * 86_400);
+        if (used > connectDailyQuota()) {
+          await deps.redis.decr(quotaKey);
+          viaConnection.push({ id: row.id, status: 'wait', error: 'Waiting for Google quota to reset' });
+          continue;
+        }
+        const result = await deps.google.publishWithToken(row.url, token, () => tokens.forget(match.conn));
+        if (result.kind === 'ok') {
+          await deps.redis.incr(`quota:provider:${row.providerId}:${utcDay(deps.now?.() ?? new Date())}`);
+          viaConnection.push({ id: row.id, status: 'submitted' });
+        } else if (result.kind === 'quota_exhausted') {
+          await deps.redis.set(quotaKey, String(connectDailyQuota()), 'EX', 2 * 86_400);
+          viaConnection.push({ id: row.id, status: 'wait', error: 'Waiting for Google quota to reset' });
+        } else if (result.kind === 'permission_denied') {
+          // Ownership changed since they connected — a FoxIndex service account may still own it.
+          await deps.redis.decr(quotaKey);
+          rest.push(row);
+        } else if (result.kind === 'invalid_url') {
+          viaConnection.push({ id: row.id, status: 'rejected', error: `Rejected by Google: the URL isn't valid or isn't on a site Google will accept (${result.message})` });
+        } else {
+          await deps.redis.decr(quotaKey);
+          viaConnection.push({ id: row.id, status: 'retry', error: `Google: ${result.message}` });
+        }
+      }
+    }
+  }
+  const viaAccounts = rest.length ? await submitGoogleServiceAccounts(deps, rest) : { outcomes: [], noAccounts: false };
+  return { outcomes: [...viaConnection, ...viaAccounts.outcomes], noAccounts: viaAccounts.noAccounts };
+}
+
+async function submitGoogleServiceAccounts(deps: ProcessorDeps, rows: PendingRow[]): Promise<{ outcomes: Outcome[]; noAccounts: boolean }> {
   const accounts = await loadAccounts(deps);
   if (accounts.length === 0) {
     return { outcomes: rows.map((r) => ({ id: r.id, status: 'wait' as const, error: 'Waiting for a Google service account to be configured' })), noAccounts: true };
@@ -191,7 +269,7 @@ async function submitGoogle(deps: ProcessorDeps, rows: PendingRow[]): Promise<{ 
           denied.push(result.message);
           continue;
         case 'invalid_url':
-          return { id: row.id, status: 'failed', error: `Google rejected the URL: ${result.message}` };
+          return { id: row.id, status: 'rejected', error: `Rejected by Google: the URL isn't valid or isn't on a site Google will accept (${result.message})` };
         case 'retryable':
           // A transient error: hand the quota unit back and try this URL again later.
           await deps.redis.decr(`quota:gsa:${acct.id}:${day}`);
@@ -203,7 +281,7 @@ async function submitGoogle(deps: ProcessorDeps, rows: PendingRow[]): Promise<{ 
     if (accounts.every((a) => unusable.has(a.id))) {
       return { id: row.id, status: 'failed', error: 'Google rejected every service account key — check them under Indexing providers' };
     }
-    return { id: row.id, status: 'failed', error: `Google: no service account is an owner of this site in Search Console (${denied[0] ?? 'permission denied'})` };
+    return { id: row.id, status: 'rejected', error: `Rejected by Google: FoxIndex can't submit for this site yet. On the Sites page, connect your Google Search Console (one click) or add FoxIndex as an owner, then resubmit. (${denied[0] ?? 'permission denied'})` };
   }
 
   const outcomes: Outcome[] = [];
@@ -235,9 +313,11 @@ export async function processBatch(deps: ProcessorDeps, batchId: string, opts: {
   const attemptsById = new Map(rows.map((r) => [r.id, r.attempts]));
   const submittedIds = outcomes.filter((o) => o.status === 'submitted').map((o) => o.id);
   const failures: { id: string; error: string }[] = [];
+  const rejections: { id: string; error: string }[] = [];
   const retries: { id: string; error: string }[] = [];
   for (const o of outcomes) {
     if (o.status === 'failed') failures.push(o);
+    else if (o.status === 'rejected') rejections.push(o);
     else if (o.status === 'retry') {
       if (opts.finalAttempt || (attemptsById.get(o.id) ?? 0) + 1 >= MAX_URL_ATTEMPTS) failures.push({ id: o.id, error: `${o.error} (gave up after ${(attemptsById.get(o.id) ?? 0) + 1} tries)` });
       else retries.push(o);
@@ -252,6 +332,14 @@ export async function processBatch(deps: ProcessorDeps, batchId: string, opts: {
         .update(urlSubmissions)
         .set({ status: 'submitted', submittedAt: now, attempts: sql`${urlSubmissions.attempts} + 1`, lastError: null })
         .where(and(inArray(urlSubmissions.id, submittedIds), inArray(urlSubmissions.status, [...PENDING])));
+      // First Google index check about 6 hours after a URL goes out (the checker takes it from there).
+      const urlIds = [...new Set(rows.filter((r) => submittedIds.includes(r.id)).map((r) => r.urlId))];
+      if (urlIds.length) {
+        await tx
+          .update(urls)
+          .set({ nextIndexCheckAt: sql`coalesce(${urls.nextIndexCheckAt}, now() + interval '6 hours')` })
+          .where(and(inArray(urls.id, urlIds), sql`${urls.indexedAt} IS NULL`));
+      }
     }
     for (const r of retries) {
       await tx
@@ -263,12 +351,20 @@ export async function processBatch(deps: ProcessorDeps, batchId: string, opts: {
       await tx.update(urlSubmissions).set({ lastError: w.error }).where(and(eq(urlSubmissions.id, w.id), inArray(urlSubmissions.status, [...PENDING])));
     }
 
-    // Failed rows refund their credits — RETURNING only rows this call actually moved, so a refund can't happen twice.
+    // Refused by the engine for a site/URL reason: final, and not refunded.
+    for (const r of rejections) {
+      await tx
+        .update(urlSubmissions)
+        .set({ status: 'rejected', attempts: sql`${urlSubmissions.attempts} + 1`, lastError: `${r.error} · Not refunded`.slice(0, 500) })
+        .where(and(eq(urlSubmissions.id, r.id), inArray(urlSubmissions.status, [...PENDING])));
+    }
+
+    // Technical failures refund their credits — RETURNING only rows this call actually moved, so a refund can't happen twice.
     const failedRows: { userId: string; creditCost: number }[] = [];
     for (const f of failures) {
       const moved = await tx
         .update(urlSubmissions)
-        .set({ status: 'failed', attempts: sql`${urlSubmissions.attempts} + 1`, lastError: f.error.slice(0, 500) })
+        .set({ status: 'failed', attempts: sql`${urlSubmissions.attempts} + 1`, lastError: `${f.error} · Refunded (technical error)`.slice(0, 500) })
         .where(and(eq(urlSubmissions.id, f.id), inArray(urlSubmissions.status, [...PENDING])))
         .returning({ userId: urlSubmissions.userId, creditCost: urlSubmissions.creditCost });
       failedRows.push(...moved);
@@ -281,7 +377,7 @@ export async function processBatch(deps: ProcessorDeps, batchId: string, opts: {
     }
     for (const [userId, { credits, count }] of byUser) {
       await tx.update(users).set({ creditBalanceCached: sql`${users.creditBalanceCached} + ${credits}`, updatedAt: now }).where(eq(users.id, userId));
-      await tx.insert(creditTransactions).values({ userId, amount: credits, type: 'refund', note: `Refund · ${count} URL${count === 1 ? '' : 's'} could not be submitted`, referenceId: batchId });
+      await tx.insert(creditTransactions).values({ userId, amount: credits, type: 'refund', note: `Refund · ${count} URL${count === 1 ? '' : 's'} couldn't be submitted (technical error)`, referenceId: batchId });
       refunded += credits;
     }
   });
@@ -296,6 +392,7 @@ export async function processBatch(deps: ProcessorDeps, batchId: string, opts: {
   const result: BatchRunResult = {
     submitted: submittedIds.length,
     failed: failures.length,
+    rejected: rejections.length,
     retrying: retries.length,
     waitingForQuota: waiting.length,
     noGoogleAccounts: g.noAccounts && google.length > 0,
@@ -315,18 +412,21 @@ async function notifyDone(deps: ProcessorDeps, batchId: string): Promise<void> {
   const [counts] = await deps.db
     .select({
       submitted: sql<string>`count(DISTINCT ${urlSubmissions.urlId}) FILTER (WHERE ${urlSubmissions.status} IN ('submitted', 'indexed', 'not_indexed'))`,
-      failed: sql<string>`count(DISTINCT ${urlSubmissions.urlId}) FILTER (WHERE ${urlSubmissions.status} IN ('failed', 'rejected'))`,
+      failed: sql<string>`count(DISTINCT ${urlSubmissions.urlId}) FILTER (WHERE ${urlSubmissions.status} = 'failed')`,
+      rejected: sql<string>`count(DISTINCT ${urlSubmissions.urlId}) FILTER (WHERE ${urlSubmissions.status} = 'rejected')`,
     })
     .from(urlSubmissions)
     .where(eq(urlSubmissions.batchId, batchId));
   const failed = Number(counts?.failed ?? 0);
+  const rejected = Number(counts?.rejected ?? 0);
+  const n = (v: number) => v.toLocaleString('en-US');
   await deps.db.insert(notifications).values({
     userId: batch.userId,
     channel: 'in_app',
     type: 'batch.done',
     payload: {
       title: `“${batch.name}” finished submitting`,
-      body: `${Number(counts?.submitted ?? 0).toLocaleString('en-US')} URLs submitted${failed ? ` · ${failed.toLocaleString('en-US')} failed and were refunded` : ''}.`,
+      body: `${n(Number(counts?.submitted ?? 0))} URLs submitted${failed ? ` · ${n(failed)} couldn't be sent because of a technical error and were refunded` : ''}${rejected ? ` · ${n(rejected)} rejected by the search engine, not refunded (see All URLs for how to fix)` : ''}.`,
       link: '/submit',
     },
     sentAt: new Date(),

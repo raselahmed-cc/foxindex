@@ -40,7 +40,7 @@ export default function PlatformOverviewPage() {
     <>
       <DashboardTopbar
         title="Platform overview"
-        subtitle={`${today}${data ? ` · ${warnings === 0 ? 'all systems healthy' : `${warnings} item${warnings === 1 ? '' : 's'} need attention`}` : ''}`}
+        subtitle={`${today}${data ? ` · ${warnings === 0 ? 'all systems healthy' : `${warnings === 1 ? '1 item needs' : `${warnings} items need`} attention`}` : ''}`}
         search={false}
         action={<Link href="/admin/credits" className="rounded-md bg-auth-accent px-3.5 py-2 text-[13.5px] font-medium whitespace-nowrap text-white hover:bg-auth-accent2">Manage credits</Link>}
       />

@@ -36,6 +36,10 @@ export const resubmitUrlsSchema = z.object({
 });
 export type ResubmitUrlsInput = z.infer<typeof resubmitUrlsSchema>;
 
+/** Check Google index status for these URLs now (free — no credits). */
+export const checkIndexSchema = z.object({ ids: z.array(z.uuid()).min(1).max(200) });
+export type CheckIndexInput = z.infer<typeof checkIndexSchema>;
+
 /** Bare hostname: "example.com", "shop.example.co.uk". Scheme/path/port are stripped before validation. */
 export const createSiteSchema = z.object({
   domain: z

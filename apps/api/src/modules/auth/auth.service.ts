@@ -34,6 +34,7 @@ import { DATABASE } from '../../database/database.module';
 import { MAILER, smtpConfigured } from './mailer.provider';
 import { AuditLogService } from '../audit-logs/audit-log.service';
 import { CreditsRepository } from '../credits/credits.repository';
+import { CreditSettingsService } from '../credits/credit-settings.service';
 
 /** Wrong codes allowed per issued code before it is burned and a new one is required. */
 const MAX_CODE_ATTEMPTS = 5;
@@ -58,6 +59,7 @@ export class AuthService {
     @Inject(AuditLogService) private readonly auditLog: AuditLogService,
     @Inject(CreditsRepository) private readonly credits: CreditsRepository,
     @Inject(REDIS_CONNECTION) private readonly redis: IORedis,
+    @Inject(CreditSettingsService) private readonly creditSettings: CreditSettingsService,
   ) {}
 
   /** Email is best-effort here: a mail outage must never fail signup, approval or verification. */
@@ -266,7 +268,8 @@ export class AuthService {
       throw new ValidationError(`User is "${target.status}", not pending approval`);
     }
 
-    const grant = input.startingCredit ?? DEFAULT_APPROVAL_CREDIT_GRANT;
+    // Staff may set the amount per approval; otherwise the superadmin's policy applies.
+    const grant = input.startingCredit ?? (await this.creditSettings.get().then((s) => s.starterCredits).catch(() => DEFAULT_APPROVAL_CREDIT_GRANT));
 
     await this.db.transaction(async (tx) => {
       await tx.update(users).set({ status: UserStatus.ACTIVE, updatedAt: new Date() }).where(eq(users.id, target.id));

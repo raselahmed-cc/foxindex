@@ -158,7 +158,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     const payload = { ...message, clientId: parsed.data.clientId };
     this.server.to([conversationRoom(conversation.id), ADMINS_ROOM]).emit('message:new', payload);
 
-    // The other side gets an in-app notification, plus one email per 10-minute burst if they're offline.
+    // The other side gets one bell entry per 5-minute burst (live toasts cover each message), plus one email per 10-minute burst if they're offline.
     const recipients = user.id === conversation.clientId ? [conversation.managerId] : [conversation.clientId];
     const preview = message.body || (message.attachments.length ? `📎 ${message.attachments.map((a) => a.fileName).join(', ')}` : '');
     for (const recipient of recipients) {
@@ -167,10 +167,10 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
         type: 'chat.message',
         title: `New message from ${message.senderName}`,
         body: preview.slice(0, 500),
-        link: '/chat',
+        link: recipient === conversation.clientId ? '/chat' : `/chat?c=${conversation.id}`,
         preference: 'managerReplied',
         emailOnlyIfOffline: true,
-        inApp: false,
+        inAppDedupe: { key: `chat:${conversation.id}`, seconds: 300 },
         emailDedupe: { key: `chat:${conversation.id}`, seconds: 600 },
       });
     }

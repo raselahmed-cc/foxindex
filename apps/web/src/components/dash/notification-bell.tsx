@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { openClientChat } from '@/lib/chat-launcher';
 import { Icon } from '@/components/dash/icons';
 import { useRealtime, type AppNotification } from '@/lib/realtime-context';
 import { relativeTime } from '@/lib/format';
@@ -20,6 +21,7 @@ const TYPE_ICON: Record<string, keyof typeof Icon> = {
   'credits.adjusted': 'card',
   'chat.message': 'chat',
   'visitor.new': 'chat',
+  'visitor.message': 'chat',
 };
 
 export function NotificationBell() {
@@ -43,7 +45,7 @@ export function NotificationBell() {
   function openItem(n: AppNotification) {
     if (!n.readAt) void markNotificationsRead([n.id]);
     setOpen(false);
-    if (n.link) router.push(n.link);
+    if (n.link && !openClientChat(n.link)) router.push(n.link);
   }
 
   return (
@@ -62,7 +64,7 @@ export function NotificationBell() {
         )}
       </button>
       {open && (
-        <div role="dialog" aria-label="Notifications" className="absolute top-10 right-0 z-70 w-[min(360px,calc(100vw-24px))] overflow-hidden rounded-xl border border-auth-line2 bg-auth-surface shadow-[0_30px_60px_-20px_rgba(0,0,0,0.9)]">
+        <div role="dialog" aria-label="Notifications" className="fixed top-14 right-3 z-70 w-[min(360px,calc(100vw-24px))] md:absolute md:top-10 md:right-0 overflow-hidden rounded-xl border border-auth-line2 bg-auth-surface shadow-[0_30px_60px_-20px_rgba(0,0,0,0.9)]">
           <div className="flex items-center justify-between border-b border-auth-line px-4 py-2.5">
             <b className="text-sm font-semibold">Notifications</b>
             {unreadNotifications > 0 && (

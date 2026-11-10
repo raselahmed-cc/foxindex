@@ -12,6 +12,7 @@ import { useAccount } from '@/lib/account-context';
 import { fmtDateTime, fmtNumber, relativeTime } from '@/lib/format';
 import { ENGINE_LABEL, ENGINE_STATUS_LABEL, URL_STATUS, engineTone, splitUrl, type EngineKey, type SiteRow, type TrackedUrl, type UrlDetail, type UrlPage, type UrlStatus } from '@/lib/tracking';
 import { cn } from '@/lib/utils';
+import { GoogleIndexBadge, GoogleIndexDetail } from '@/components/urls/google-index';
 
 const PAGE = 50;
 const TONE_BOX: Record<string, string> = {
@@ -44,6 +45,21 @@ function EngineBadges({ url }: { url: TrackedUrl }) {
 function UrlDrawer({ id, onClose, onResubmit }: { id: string | null; onClose: () => void; onResubmit: (ids: string[]) => void }) {
   const detail = useApi<UrlDetail>(id ? `/urls/${id}` : null);
   const d = detail.data;
+  const toast = useToast();
+  const [checking, setChecking] = useState(false);
+  async function checkNow() {
+    if (!d) return;
+    setChecking(true);
+    try {
+      await apiClient.post('/urls/check-index', { ids: [d.id] });
+      toast('Asking Google — the result appears here within about a minute', 'info');
+      setTimeout(() => void detail.reload(), 70_000);
+    } catch (e) {
+      toast(errorMessage(e), 'bad');
+    } finally {
+      setChecking(false);
+    }
+  }
   return (
     <Drawer open={id !== null} onClose={onClose} title="URL details" subtitle={d ? d.site.domain : undefined} footer={d ? <><a href={d.url} target="_blank" rel="noreferrer" className="text-[13px] text-auth-accent">Open page ↗</a><Button variant="primary" onClick={() => onResubmit([d.id])}>Resubmit</Button></> : undefined}>
       {detail.error ? (
@@ -59,6 +75,10 @@ function UrlDrawer({ id, onClose, onResubmit }: { id: string | null; onClose: ()
               First submitted {fmtDateTime(d.createdAt)}
             </div>
           </div>
+          <section>
+            <h4 className="mb-2 text-xs font-medium text-auth-text3">Is it on Google?</h4>
+            <GoogleIndexDetail google={d.google} checking={checking} onCheck={() => void checkNow()} />
+          </section>
           <section>
             <h4 className="mb-2 text-xs font-medium text-auth-text3">Engines</h4>
             <div className="grid gap-2">
@@ -161,6 +181,7 @@ function UrlsInner() {
   const [debounced, setDebounced] = useState('');
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const toast = useToast();
   const [openId, setOpenId] = useState<string | null>(null);
   const [resubmitIds, setResubmitIds] = useState<string[] | null>(null);
   const sites = useApi<SiteRow[]>('/sites');
@@ -192,6 +213,15 @@ function UrlsInner() {
     const t = setInterval(() => void reload(), 15_000);
     return () => clearInterval(t);
   }, [rows, reload]);
+
+  async function checkSelected() {
+    try {
+      const r = await apiClient.post<{ queued: number }>('/urls/check-index', { ids: [...selected].slice(0, 200) });
+      toast(`Asking Google about ${fmtNumber(r.queued)} URL${r.queued === 1 ? '' : 's'} — results appear within a few minutes`, 'info');
+    } catch (e) {
+      toast(errorMessage(e), 'bad');
+    }
+  }
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -259,7 +289,8 @@ function UrlsInner() {
           <div className="flex flex-wrap items-center gap-2.5 border-b border-auth-line bg-auth-accent-soft px-4.5 py-2.5 text-[13.5px]">
             <b className="font-medium">{selected.size} selected</b>
             <button className="text-auth-accent" onClick={() => setSelected(new Set())}>Clear</button>
-            <Button size="sm" variant="primary" className="ml-auto" onClick={() => setResubmitIds([...selected])}>Resubmit {selected.size}</Button>
+            <Button size="sm" className="ml-auto" onClick={() => void checkSelected()}>Check on Google</Button>
+            <Button size="sm" variant="primary" onClick={() => setResubmitIds([...selected])}>Resubmit {selected.size}</Button>
           </div>
         )}
         {page.error ? (
@@ -278,7 +309,7 @@ function UrlsInner() {
                   <th className="border-b border-auth-line py-2.5 pr-0 pl-3.5">
                     <input type="checkbox" aria-label="Select all on this page" checked={rows.every((r) => selected.has(r.id))} onChange={(e) => setSelected(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())} className="h-3.5 w-3.5 accent-auth-accent" />
                   </th>
-                  {['URL', 'Engines', 'Status', 'Last activity', ''].map((h) => <th key={h} className="border-b border-auth-line px-3.5 py-2.5 font-medium">{h}</th>)}
+                  {['URL', 'Engines', 'Submission', 'On Google', 'Last activity', ''].map((h) => <th key={h} className="border-b border-auth-line px-3.5 py-2.5 font-medium">{h}</th>)}
                 </tr>
               </thead>
               <tbody>
@@ -296,6 +327,7 @@ function UrlsInner() {
                       </td>
                       <td className="border-b border-auth-line px-3.5 py-2.5"><EngineBadges url={r} /></td>
                       <td className="border-b border-auth-line px-3.5 py-2.5"><Pill tone={URL_STATUS[r.status].tone}>{URL_STATUS[r.status].label}</Pill></td>
+                      <td className="border-b border-auth-line px-3.5 py-2.5"><GoogleIndexBadge google={r.google} /></td>
                       <td className="border-b border-auth-line px-3.5 py-2.5 text-auth-text3" title={fmtDateTime(r.lastActivityAt)}>{relativeTime(r.lastActivityAt)}</td>
                       <td className="border-b border-auth-line px-3.5 py-2.5 text-[12.5px]">
                         {r.status === 'failed' && <button className="mr-3 text-auth-accent" onClick={() => setResubmitIds([r.id])}>Resubmit</button>}

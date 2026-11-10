@@ -13,3 +13,4 @@ export * from './attachments';
 export * from './relations';
 export * from './visitor-chat';
 export * from './reviews';
+export * from './google-connections';

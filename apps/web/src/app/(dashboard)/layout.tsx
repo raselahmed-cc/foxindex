@@ -17,6 +17,9 @@ import { Avatar, Pill } from '@/components/dash/ui';
 import { Icon } from '@/components/dash/icons';
 import { ToastProvider } from '@/components/dash/toast';
 import { ChatWidget } from '@/components/chat/chat-widget';
+import { MobileNav } from '@/components/dash/mobile-nav';
+import { openClientChat } from '@/lib/chat-launcher';
+import { NotifyPrompt } from '@/components/dash/notify-prompt';
 import { RealtimeProvider } from '@/lib/realtime-context';
 import { resetChatSocket } from '@/lib/chat-socket';
 
@@ -26,13 +29,14 @@ const ROLE_PILL: Record<Exclude<Role, 'client'>, { tone: 'info' | 'bad'; label: 
   superadmin: { tone: 'bad', label: 'Superadmin' },
 };
 
-function NavLink({ item, active, badge }: { item: NavItem; active: boolean; badge?: number }) {
+function NavLink({ item, active, badge, popupChat }: { item: NavItem; active: boolean; badge?: number; popupChat?: boolean }) {
   const IconCmp = Icon[item.icon];
   const tone = item.badgeKey === 'pendingPayments' || item.badgeKey === 'pendingApprovals' ? 'bg-auth-warn-soft text-auth-warn' : item.badgeKey === 'unreadChats' ? 'bg-auth-fox-soft text-auth-fox' : 'bg-auth-surface2 text-auth-text2';
   return (
     <Link
       href={item.href}
       aria-current={active ? 'page' : undefined}
+      onClick={popupChat ? (e) => openClientChat(item.href) && e.preventDefault() : undefined}
       className={`mb-0.5 flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm ${
         active ? 'bg-auth-accent-soft text-auth-text' : 'text-auth-text2 hover:bg-auth-surface hover:text-auth-text'
       }`}
@@ -119,7 +123,7 @@ function Shell({ children, role, name, userId, onSignOut }: { children: ReactNod
               <div key={gi}>
                 {group.label && <div className="px-2.5 pt-4 pb-1.5 text-[11px] tracking-wide text-auth-text3">{group.label}</div>}
                 {group.items.map((item) => (
-                  <NavLink key={item.href} item={item} active={isActivePath(pathname, item.href)} badge={item.badgeKey ? badges[item.badgeKey] : undefined} />
+                  <NavLink key={item.href} item={item} active={isActivePath(pathname, item.href)} badge={item.badgeKey ? badges[item.badgeKey] : undefined} popupChat={isClient && item.href === '/chat'} />
                 ))}
               </div>
             ))}
@@ -148,9 +152,18 @@ function Shell({ children, role, name, userId, onSignOut }: { children: ReactNod
           </div>
         </aside>
 
-        <main className="min-w-0 px-4 pt-4 pb-12 md:px-7 md:pt-0">{children}</main>
+        <main className="min-w-0 px-4 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom))] md:px-7 md:pt-0 md:pb-12">
+          <MobileNav role={role} name={name} homeHref={isClient ? '/dashboard' : role === 'manager' ? '/admin/users' : '/admin'} onSignOut={onSignOut} />
+          <NotifyPrompt isClient={isClient} />
+          {children}
+        </main>
 
-        {isClient && pathname !== '/chat' && <ChatWidget />}
+        {/* On phones the Chat tab in the bottom bar replaces the floating bubble. */}
+        {isClient && pathname !== '/chat' && (
+          <div className="hidden md:block">
+            <ChatWidget />
+          </div>
+        )}
       </div>
     </NavContext.Provider>
     </RealtimeProvider>

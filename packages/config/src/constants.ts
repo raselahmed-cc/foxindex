@@ -35,4 +35,5 @@ export const JWT_REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
 /** Email verification code validity (CLAUDE.md "Account lifecycle"). */
 export const EMAIL_VERIFICATION_CODE_TTL_MINUTES = 15;
 /** Default starting credit a manager may grant on approval (CLAUDE.md "Account lifecycle"). */
-export const DEFAULT_APPROVAL_CREDIT_GRANT = 100;
+/** Fallback only — the live amount is the superadmin's credit policy (`starterCredits`). */
+export const DEFAULT_APPROVAL_CREDIT_GRANT = 10;

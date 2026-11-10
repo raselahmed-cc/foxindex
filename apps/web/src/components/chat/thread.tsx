@@ -303,6 +303,7 @@ function DaySep({ label }: { label: string }) {
 
 export interface ComposerHandle {
   insert: (text: string) => void;
+  focus: () => void;
 }
 
 interface PendingFile {
@@ -342,6 +343,7 @@ export const Composer = forwardRef<
       setDraft(text);
       requestAnimationFrame(() => textareaRef.current?.focus());
     },
+    focus: () => textareaRef.current?.focus(),
   }));
 
   useEffect(() => {

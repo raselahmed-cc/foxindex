@@ -4,6 +4,7 @@ import { SiteNav } from '@/components/marketing/site-nav';
 import { Pricing } from '@/components/marketing/pricing';
 import { VisitorChat } from '@/components/marketing/visitor-chat';
 import { ReviewsSection } from '@/components/marketing/customer-reviews';
+import { StarterCredits } from '@/components/marketing/starter-credits';
 
 export const metadata: Metadata = {
   title: 'FoxIndex — Get your new pages into Google faster',
@@ -33,9 +34,9 @@ const PILL: Record<string, string> = {
 const ENGINES = ['Google', 'Bing', 'Yandex', 'Naver', 'Seznam', 'Yep'];
 
 const STEPS = [
-  { k: 'Step 1', title: 'Create your account', body: 'Sign up and confirm your email. A real account manager approves you — usually within a few hours — and you get 100 free credits.' },
+  { k: 'Step 1', title: 'Create your account', body: <>Sign up and confirm your email. A real account manager approves you — usually within a few hours — and you get <StarterCredits /> free credits to try it.</> },
   { k: 'Step 2', title: 'Submit URLs', body: 'Paste a list, upload a CSV, point us at your sitemap, or call the REST API. Each URL goes to every engine you choose.' },
-  { k: 'Step 3', title: 'Track every URL', body: 'See the status of each URL per engine. If a URL can’t be submitted, its credit is refunded automatically.' },
+  { k: 'Step 3', title: 'Track every URL', body: 'See the status of each URL per engine. If a technical error stops a URL from being sent, its credit is refunded automatically.' },
 ];
 
 const FEATURES = [
@@ -56,7 +57,11 @@ const FAQ = [
   },
   {
     q: 'What do I need for Google submissions?',
-    a: 'Google accepts submissions for a site once FoxIndex is added as an owner in your Search Console. The Sites page shows the exact address and steps — it takes a minute. If a Google submission still fails, the credit is refunded automatically.',
+    a: 'Google accepts submissions for a site once FoxIndex is added as an owner in your Search Console. The Sites page shows the exact address and steps — it takes a minute. Do this before you submit: URLs Google rejects because the site isn’t set up aren’t refunded.',
+  },
+  {
+    q: 'Do I get a refund if a page isn’t indexed?',
+    a: 'No. A credit pays for submitting the URL — whether and when a page is indexed is decided by the search engine and depends on the page itself. You’re refunded automatically only when a technical error (on our side or the search engine’s) stops a URL from being sent. URLs rejected because of the site’s setup, like a missing Search Console owner or IndexNow key file, aren’t refunded, and each one shows how to fix it.',
   },
   {
     q: 'Can I add credit without a card?',
@@ -84,7 +89,7 @@ export default function HomePage() {
               <Link href="/signup" className="rounded-md bg-auth-accent px-5 py-3 font-medium text-white hover:bg-auth-accent2">Create free account</Link>
               <a href="#how" className="rounded-md border border-auth-line2 px-5 py-3 hover:bg-auth-surface2">See how it works</a>
             </div>
-            <p className="mt-4 text-sm text-auth-text3">100 free credits after approval. No card needed.</p>
+            <p className="mt-4 text-sm text-auth-text3"><StarterCredits /> free credits to try it after approval. No card needed.</p>
           </div>
 
           <div className="overflow-hidden rounded-2xl border border-auth-line bg-auth-surface shadow-[0_40px_90px_-40px_rgba(0,0,0,0.9)]" aria-label="Example submissions">
@@ -102,7 +107,7 @@ export default function HomePage() {
             <div className="flex flex-wrap gap-x-6 gap-y-1 border-t border-auth-line px-4 py-3 text-[13px] text-auth-text3">
               <span><b className="text-auth-text">6</b> search engines</span>
               <span><b className="text-auth-text">1</b> credit per URL</span>
-              <span>Refund if a URL can’t be submitted</span>
+              <span>Refund on technical errors</span>
             </div>
           </div>
         </section>
@@ -163,7 +168,7 @@ export default function HomePage() {
 
         <section className="border-t border-auth-line py-20 text-center">
           <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Stop waiting for the crawler.</h2>
-          <p className="mx-auto mt-3 max-w-md text-auth-text2">Create an account and submit your first hundred URLs on us.</p>
+          <p className="mx-auto mt-3 max-w-md text-auth-text2">Create an account and try your first <StarterCredits /> URLs on us.</p>
           <Link href="/signup" className="mt-7 inline-block rounded-md bg-auth-accent px-5 py-3 font-medium text-white hover:bg-auth-accent2">Create free account</Link>
         </section>
 
@@ -174,6 +179,8 @@ export default function HomePage() {
             <a href="#faq" className="hover:text-auth-text">FAQ</a>
             <Link href="/login" className="hover:text-auth-text">Log in</Link>
             <Link href="/signup" className="hover:text-auth-text">Create account</Link>
+            <Link href="/privacy" className="hover:text-auth-text">Privacy</Link>
+            <Link href="/terms" className="hover:text-auth-text">Terms</Link>
           </nav>
         </footer>
       </div>

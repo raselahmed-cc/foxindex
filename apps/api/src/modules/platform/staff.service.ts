@@ -124,7 +124,7 @@ export class StaffService {
     await this.db.transaction(async (tx) => {
       await tx
         .update(users)
-        .set({ role: input.role, status: input.status, maxClients: input.maxClients, updatedAt: new Date() })
+        .set({ name: input.name, role: input.role, status: input.status, maxClients: input.maxClients, updatedAt: new Date() })
         .where(eq(users.id, targetId));
       if (input.status === 'suspended' || (input.role && input.role !== target.role)) {
         // Force re-login so the new role/status is reflected in the next access token.

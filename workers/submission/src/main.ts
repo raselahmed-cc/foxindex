@@ -14,6 +14,8 @@ import { SERVICE_NAMES } from '@foxindex/config';
 import { createLogger, logEvent } from '@foxindex/logger';
 import { GoogleIndexingClient, IndexNowProvider } from '@foxindex/providers';
 import { msUntilQuotaReset, processBatch, type ProcessorDeps } from './batch-processor';
+import { runIndexChecks } from './index-checker';
+import { googleOAuthFromEnv } from './google-connections';
 
 const logger = createLogger(SERVICE_NAMES.SUBMISSION_WORKER);
 
@@ -21,6 +23,8 @@ const logger = createLogger(SERVICE_NAMES.SUBMISSION_WORKER);
 export const HEARTBEAT_FILE = process.env.WORKER_HEARTBEAT_FILE ?? resolve(tmpdir(), 'foxindex-worker-heartbeat');
 const SWEEP_EVERY_MS = 5 * 60_000;
 const NO_ACCOUNTS_RETRY_MS = 30 * 60_000;
+/** How often the Google index checker looks for URLs that are due. */
+const INDEX_CHECK_EVERY_MS = 60_000;
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -48,6 +52,7 @@ async function main(): Promise<void> {
     encryptionKey,
     logger,
     google: new GoogleIndexingClient(),
+    googleOAuth: googleOAuthFromEnv(),
     indexNow: (endpoint) => {
       const key = endpoint ?? 'default';
       if (!indexNowProviders.has(key)) indexNowProviders.set(key, new IndexNowProvider({ apiBaseUrl: endpoint }));
@@ -116,6 +121,25 @@ async function main(): Promise<void> {
   });
   worker.on('error', (error) => logEvent(logger, 'worker.error', 'Worker error', { error: error.message }));
 
+  // Google index checks: one worker at a time (Redis lock), every minute.
+  let checking = false;
+  async function indexCheckTick(): Promise<void> {
+    if (checking) return;
+    const locked = await connection.set('lock:index-check', '1', 'PX', INDEX_CHECK_EVERY_MS - 5_000, 'NX').catch(() => null);
+    if (locked !== 'OK') return;
+    checking = true;
+    try {
+      const run = await runIndexChecks({ db, redis: connection, encryptionKey, logger, google: deps.google as GoogleIndexingClient, googleOAuth: deps.googleOAuth });
+      if (run.checked || run.noAccess) logEvent(logger, 'index_check.run', 'Index checks done', { ...run });
+    } catch (error) {
+      logEvent(logger, 'index_check.failed', 'Index check run failed', { error: error instanceof Error ? error.message : String(error) });
+    } finally {
+      checking = false;
+    }
+  }
+  const indexTimer = setInterval(() => void indexCheckTick(), INDEX_CHECK_EVERY_MS);
+  setTimeout(() => void indexCheckTick(), 15_000).unref();
+
   const beat = () => {
     try {
       writeFileSync(HEARTBEAT_FILE, String(Date.now()));
@@ -134,6 +158,7 @@ async function main(): Promise<void> {
     stopping = true;
     logEvent(logger, 'worker.shutdown', `Received ${signal}, finishing in-flight jobs`, { signal });
     clearInterval(heartbeat);
+    clearInterval(indexTimer);
     const force = setTimeout(() => process.exit(1), 30_000);
     force.unref();
     await worker.close();

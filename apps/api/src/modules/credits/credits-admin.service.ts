@@ -32,18 +32,19 @@ export class CreditsAdminService {
     return actor.role === UserRole.MANAGER ? sql`u.role = 'client' AND u.assigned_manager_id = ${actor.id}` : sql`u.role = 'client'`;
   }
 
-  /** What this actor may still do today — shown next to the adjust form. */
+  /** What this actor may still do today — shown next to the adjust form. A policy value of 0 means no limit. */
   async limitsFor(actor: Actor, settings?: CreditSettings) {
     const s = settings ?? (await this.settings.get());
     if (actor.role === UserRole.SUPERADMIN) return { maxPerAdjustment: null, dailyLimit: null, usedToday: 0, canDeduct: true };
-    if (actor.role === UserRole.ADMIN) return { maxPerAdjustment: s.adminMaxPerAdjustment, dailyLimit: null, usedToday: 0, canDeduct: true };
+    const cap = (n: number) => (n > 0 ? n : null);
+    if (actor.role === UserRole.ADMIN) return { maxPerAdjustment: cap(s.adminMaxPerAdjustment), dailyLimit: null, usedToday: 0, canDeduct: true };
     const [{ used }] = await this.db
       .select({ used: sql<string>`coalesce(sum(abs(${creditTransactions.amount})), 0)` })
       .from(creditTransactions)
       .where(
         sql`${creditTransactions.performedBy} = ${actor.id} AND ${creditTransactions.type} IN ('manual_add', 'manual_deduct') AND ${creditTransactions.createdAt} >= date_trunc('day', now())`,
       );
-    return { maxPerAdjustment: s.managerMaxPerAdjustment, dailyLimit: s.managerDailyLimit, usedToday: Number(used), canDeduct: s.managersCanDeduct };
+    return { maxPerAdjustment: cap(s.managerMaxPerAdjustment), dailyLimit: cap(s.managerDailyLimit), usedToday: Number(used), canDeduct: s.managersCanDeduct };
   }
 
   async adjust(actor: Actor, targetUserId: string, input: AdjustCreditsInput) {

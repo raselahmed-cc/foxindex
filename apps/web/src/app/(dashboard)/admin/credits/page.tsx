@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 
 interface CreditSettings {
   creditsPerUrl: number;
+  starterCredits: number;
   managerMaxPerAdjustment: number;
   managerDailyLimit: number;
   managersCanDeduct: boolean;
@@ -262,9 +263,10 @@ function PolicyCard({ settings, editable, onSaved }: { settings: CreditSettings;
       <CardHeader title="Credit policy" subtitle={editable ? 'Applies to every client and staff member' : 'Set by the superadmin'} right={!editable && <Pill tone="muted">Read only</Pill>} />
       <div className="p-4.5">
         {num('creditsPerUrl', 'Credits per URL', 'Charged for every accepted URL, all search engines included')}
-        {num('adminMaxPerAdjustment', 'Admin limit per adjustment', 'Largest single add or remove by an admin')}
-        {num('managerMaxPerAdjustment', 'Account manager limit per adjustment', 'Largest single add or remove by a manager')}
-        {num('managerDailyLimit', 'Account manager daily limit', 'Total a manager can add or remove per day')}
+        {num('starterCredits', 'Free credits for new accounts', 'Given when a manager approves a new account — shown on the homepage and signup page')}
+        {num('adminMaxPerAdjustment', 'Admin limit per adjustment', 'Largest single add or remove by an admin · 0 = no limit')}
+        {num('managerMaxPerAdjustment', 'Account manager limit per adjustment', 'Largest single add or remove by a manager · 0 = no limit')}
+        {num('managerDailyLimit', 'Account manager daily limit', 'Total a manager can add or remove per day · 0 = no limit')}
         <div className="flex items-center justify-between gap-3 border-t border-auth-line pt-3 text-[13.5px]">
           <div>
             Managers can remove credits

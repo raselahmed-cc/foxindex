@@ -3,6 +3,8 @@ import {
   createSiteSchema,
   publicSubmitSchema,
   resubmitUrlsSchema,
+  checkIndexSchema,
+  type CheckIndexInput,
   urlListQuerySchema,
   type CreateSiteInput,
   type PublicSubmitInput,
@@ -41,6 +43,14 @@ export class UrlsController {
   @UseInterceptors(IdempotencyInterceptor)
   submit(@CurrentCaller() caller: Caller, @Body(new ZodValidationPipe(publicSubmitSchema)) body: PublicSubmitInput) {
     return this.tracking.submit(caller, body);
+  }
+
+  @Post('check-index')
+  @HttpCode(202)
+  @ApiScope('status')
+  @RateLimit({ scope: 'urls-check-index', limit: 30, windowSeconds: 3600 })
+  checkIndex(@CurrentCaller() caller: Caller, @Body(new ZodValidationPipe(checkIndexSchema)) body: CheckIndexInput) {
+    return this.tracking.requestIndexCheck(caller, body.ids);
   }
 
   @Post('resubmit')
@@ -83,6 +93,14 @@ export class SitesController {
   @RateLimit({ scope: 'sites-write', limit: 30, windowSeconds: 3600 })
   create(@CurrentCaller() caller: Caller, @Body(new ZodValidationPipe(createSiteSchema)) body: CreateSiteInput) {
     return this.tracking.createSite(caller, body);
+  }
+
+  /** Check that the site hosts its IndexNow key file. */
+  @Post(':id/indexnow/verify')
+  @ApiScope('sites')
+  @RateLimit({ scope: 'sites-indexnow-verify', limit: 40, windowSeconds: 3600 })
+  verifyIndexNow(@CurrentCaller() caller: Caller, @Param('id', ParseUUIDPipe) id: string) {
+    return this.tracking.verifyIndexNow(caller, id);
   }
 
   @Delete(':id')

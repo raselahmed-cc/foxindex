@@ -69,7 +69,7 @@ export default function PaymentsQueuePage() {
   return (
     <>
       <DashboardTopbar
-        title={isManager ? 'Credit requests' : 'Credits & payments'}
+        title={isManager ? 'Credit requests' : 'Payments'}
         subtitle={isManager ? 'Manual payments from your clients — verify the transfer, then approve' : 'Every payment on the platform'}
         search={false}
       />

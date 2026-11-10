@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { DashboardTopbar } from '@/components/dashboard-topbar';
-import { Button, Card, EmptyState, ErrorBanner, Field, Input, Modal, Skeleton, useCopy } from '@/components/dash/ui';
+import { Button, Card, EmptyState, ErrorBanner, Field, Input, Modal, Pill, Skeleton, useCopy } from '@/components/dash/ui';
 import { Icon } from '@/components/dash/icons';
 import { useToast } from '@/components/dash/toast';
 import { apiClient } from '@/lib/api-client';
@@ -11,6 +12,9 @@ import { useAccount } from '@/lib/account-context';
 import { errorMessage, useApi } from '@/lib/use-api';
 import { fmtDate, fmtNumber, relativeTime } from '@/lib/format';
 import type { SiteRow } from '@/lib/tracking';
+import { IndexNowSetup } from '@/components/sites/indexnow-setup';
+import { GoogleConnectCard } from '@/components/sites/google-connect-card';
+import { connectionForDomain, type GoogleConnections } from '@/lib/google-connect';
 
 interface GoogleSetup {
   enabled: boolean;
@@ -29,16 +33,13 @@ function GoogleIcon({ className }: { className?: string }) {
 }
 
 /** Google only accepts Indexing API calls from an Owner of the Search Console property. */
-function GoogleAccessCard({ setup }: { setup: GoogleSetup | undefined }) {
+function GoogleAccessCard({ setup, bare = false }: { setup: GoogleSetup | undefined; bare?: boolean }) {
   const copy = useCopy();
   const toast = useToast();
   if (!setup) return <Skeleton className="h-36" />;
-  return (
-    <Card className="p-4.5">
-      <div className="flex items-start gap-3">
-        <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-auth-surface2"><GoogleIcon className="h-4.5 w-4.5" /></span>
+  const body = (
         <div className="min-w-0 flex-1">
-          <b className="block text-[14px] font-medium">Let FoxIndex submit to Google</b>
+          <b className="block text-[14px] font-medium">{bare ? 'Add FoxIndex as an Owner instead' : 'Let FoxIndex submit to Google'}</b>
           {setup.enabled ? (
             <>
               <p className="mt-1 text-[13px] text-auth-text2">
@@ -55,23 +56,31 @@ function GoogleAccessCard({ setup }: { setup: GoogleSetup | undefined }) {
               <ol className="mt-3 grid list-decimal gap-0.5 pl-4.5 text-[12.5px] text-auth-text2">
                 <li>Open <a href="https://search.google.com/search-console/users" target="_blank" rel="noreferrer" className="text-auth-accent">Search Console → Settings → Users and permissions</a> for your site.</li>
                 <li>Choose <b className="font-medium">Add user</b>, paste the address and set permission to <b className="font-medium">Owner</b>.</li>
-                <li>That’s it — Google submissions for that site start working right away. Without it they fail and the credit is refunded.</li>
+                <li>That’s it — Google submissions for that site start working right away. Without it Google rejects them, and rejected URLs are not refunded — so do this before you submit.</li>
               </ol>
             </>
           ) : (
             <p className="mt-1 text-[13px] text-auth-text2">Google submission is being set up by the FoxIndex team. Until then, URLs still go to Bing, Yandex, Naver, Seznam and Yep for free.</p>
           )}
         </div>
+  );
+  if (bare) return body;
+  return (
+    <Card className="p-4.5">
+      <div className="flex items-start gap-3">
+        <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-auth-surface2"><GoogleIcon className="h-4.5 w-4.5" /></span>
+        {body}
       </div>
     </Card>
   );
 }
 
-function SiteCard({ site, onRemove }: { site: SiteRow; onRemove: () => void }) {
+function SiteCard({ site, onRemove, onChanged, google }: { site: SiteRow; onRemove: () => void; onChanged: () => void; google: GoogleConnections | undefined }) {
+  const conn = connectionForDomain(google, site.domain);
   const c = site.counts;
   const accepted = c.submitted + c.indexed;
   return (
-    <div className="flex flex-col rounded-[10px] border border-auth-line bg-auth-surface">
+    <div className="flex min-w-0 flex-col rounded-[10px] border border-auth-line bg-auth-surface">
       <div className="flex items-center gap-3 border-b border-auth-line px-4.5 py-4">
         <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-auth-surface2 text-sm font-semibold text-auth-text2 uppercase">{site.domain[0]}</span>
         <div className="min-w-0">
@@ -82,6 +91,14 @@ function SiteCard({ site, onRemove }: { site: SiteRow; onRemove: () => void }) {
           <button onClick={onRemove} className="ml-auto rounded-md border border-auth-line2 px-2.5 py-1.5 text-xs text-auth-bad hover:bg-auth-surface2">Remove</button>
         )}
       </div>
+      <div className="flex flex-wrap items-center gap-2 border-b border-auth-line px-4.5 py-3">
+        <b className="text-[13px] font-medium">Google</b>
+        <span className="min-w-0 truncate text-xs text-auth-text3">{conn ? `via ${conn.email}` : 'instant indexing + index status'}</span>
+        <span className="ml-auto">
+          {conn ? <Pill tone="ok">Connected</Pill> : google?.available ? <a href="#google-connect" className="text-xs text-auth-accent">Connect Google →</a> : <Pill tone="muted">Not connected</Pill>}
+        </span>
+      </div>
+      <IndexNowSetup siteId={site.id} domain={site.domain} indexnow={site.indexnow} onChanged={onChanged} />
       <div className="grid grid-cols-4 border-b border-auth-line">
         {[
           { n: fmtNumber(accepted), l: 'accepted' },
@@ -106,11 +123,31 @@ function SiteCard({ site, onRemove }: { site: SiteRow; onRemove: () => void }) {
   );
 }
 
-export default function SitesPage() {
+function SitesPageInner() {
   const toast = useToast();
   const { refreshProfile } = useAccount();
   const sites = useApi<SiteRow[]>('/sites');
   const setup = useApi<GoogleSetup>('/sites/google-setup');
+  const google = useApi<GoogleConnections>('/google/connections');
+  const params = useSearchParams();
+  const router = useRouter();
+  const handled = useRef(false);
+  useEffect(() => {
+    const result = params.get('google');
+    if (!result || handled.current) return;
+    handled.current = true;
+    const owned = Number(params.get('owned') ?? 0);
+    const reasons: Record<string, string> = {
+      denied: 'Google sign-in was cancelled.',
+      expired: 'That sign-in link expired — please try again.',
+      no_offline_access: 'Google didn’t grant lasting access — please try again and allow all permissions.',
+      missing_permission: 'Please allow FoxIndex to submit URLs to Google (tick every box on Google’s screen).',
+      search_console_off: 'Google Search Console access isn’t enabled for FoxIndex yet — please tell your account manager.',
+    };
+    if (result === 'connected') toast(owned ? `Google connected — ${owned} site${owned === 1 ? '' : 's'} ready for instant indexing` : 'Google connected, but this account doesn’t own any site in Search Console yet', owned ? 'ok' : 'info');
+    else toast(reasons[params.get('reason') ?? ''] ?? 'Couldn’t connect Google — please try again.', 'bad');
+    router.replace('/sites');
+  }, [params, router, toast]);
   const [adding, setAdding] = useState(false);
   const [domain, setDomain] = useState('');
   const [busy, setBusy] = useState(false);
@@ -157,7 +194,14 @@ export default function SitesPage() {
       />
 
       <div className="grid gap-4">
-        <GoogleAccessCard setup={setup.data} />
+        <div id="google-connect" className="scroll-mt-5">
+          <GoogleConnectCard
+            data={google.data}
+            onChanged={() => void google.reload()}
+            icon={<GoogleIcon className="h-4.5 w-4.5" />}
+            fallback={<GoogleAccessCard setup={setup.data} bare />}
+          />
+        </div>
 
         {sites.error ? (
           <ErrorBanner message="Could not load your sites." onRetry={() => void sites.reload()} />
@@ -170,8 +214,8 @@ export default function SitesPage() {
             </EmptyState>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            {list.map((site) => <SiteCard key={site.id} site={site} onRemove={() => void remove(site)} />)}
+          <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
+            {list.map((site) => <SiteCard key={site.id} site={site} google={google.data} onRemove={() => void remove(site)} onChanged={() => void sites.reload()} />)}
           </div>
         )}
       </div>
@@ -188,5 +232,13 @@ export default function SitesPage() {
         </Field>
       </Modal>
     </>
+  );
+}
+
+export default function SitesPage() {
+  return (
+    <Suspense>
+      <SitesPageInner />
+    </Suspense>
   );
 }

@@ -39,11 +39,23 @@ export const urls = pgTable(
     url: text('url').notNull(),
     normalizedUrl: text('normalized_url').notNull(),
     indexedAt: timestamp('indexed_at', { withTimezone: true }),
+    /** Latest Google verdict from Search Console URL Inspection (null = not checked yet). */
+    indexStatus: indexCheckStatusEnum('index_status'),
+    /** Google's own wording, e.g. "Crawled - currently not indexed". */
+    indexCoverage: text('index_coverage'),
+    lastCrawledAt: timestamp('last_crawled_at', { withTimezone: true }),
+    indexCheckedAt: timestamp('index_checked_at', { withTimezone: true }),
+    /** When the checker should look again; null = no more checks planned. */
+    nextIndexCheckAt: timestamp('next_index_check_at', { withTimezone: true }),
+    indexCheckCount: integer('index_check_count').notNull().default(0),
+    /** Why a check couldn't run (e.g. FoxIndex isn't an owner in Search Console). */
+    indexNote: text('index_note'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex('urls_site_normalized_unique').on(table.siteId, table.normalizedUrl),
     index('urls_user_id_idx').on(table.userId),
+    index('urls_next_index_check_idx').on(table.nextIndexCheckAt),
   ],
 );
 

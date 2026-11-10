@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { Avatar, EmptyState, Skeleton } from '@/components/dash/ui';
 import { Icon } from '@/components/dash/icons';
 import { Composer, MessageList, waHref, type ComposerHandle } from '@/components/chat/thread';
 import { useUser } from '@/lib/user-context';
 import { useChat } from '@/lib/use-chat';
+import { registerChatWidget } from '@/lib/chat-launcher';
 import { cn } from '@/lib/utils';
 
 /**
@@ -43,6 +43,16 @@ export function ChatWidget() {
       return value;
     });
 
+  // "Live chat" in the sidebar, chat alerts and bell entries open the pop-up instead of a page.
+  useEffect(
+    () =>
+      registerChatWidget(() => {
+        setOpen(true);
+        setTimeout(() => composer.current?.focus(), 50);
+      }),
+    [],
+  );
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
@@ -63,7 +73,7 @@ export function ChatWidget() {
         <section
           role="dialog"
           aria-label={`Chat with ${peer?.name ?? 'your manager'}`}
-          className="fixed inset-x-2 bottom-20 z-50 flex h-[min(600px,calc(100vh-7rem))] flex-col overflow-hidden rounded-xl border border-auth-line2 bg-auth-surface shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)] sm:inset-x-auto sm:right-5.5 sm:w-[380px]"
+          className="fixed inset-x-2 bottom-[calc(9rem+env(safe-area-inset-bottom))] z-50 flex h-[min(600px,calc(100vh-11rem))] md:bottom-20 md:h-[min(600px,calc(100vh-7rem))] flex-col overflow-hidden rounded-xl border border-auth-line2 bg-auth-surface shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)] sm:inset-x-auto sm:right-5.5 sm:w-[400px]"
         >
           <header className="flex items-center gap-3 border-b border-auth-line bg-auth-bg2 px-4 py-3">
             {peer ? (
@@ -87,11 +97,6 @@ export function ChatWidget() {
                 <Icon.whatsapp className="h-4 w-4" />
               </a>
             )}
-            <Link href="/chat" onClick={() => setOpen(false)} aria-label="Open full chat" title="Open full chat" className="flex h-8 w-8 items-center justify-center rounded-md text-auth-text3 hover:bg-auth-surface2 hover:text-auth-text">
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-3.75 w-3.75" aria-hidden="true">
-                <path d="M9.5 2.5h4v4M13.5 2.5L8 8M6.5 3.5h-3a1 1 0 00-1 1v8a1 1 0 001 1h8a1 1 0 001-1v-3" />
-              </svg>
-            </Link>
             <button onClick={() => setOpen(false)} aria-label="Close chat" className="flex h-8 w-8 items-center justify-center rounded-md text-auth-text3 hover:bg-auth-surface2 hover:text-auth-text">
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-3.5 w-3.5" aria-hidden="true">
                 <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" />
@@ -149,7 +154,7 @@ export function ChatWidget() {
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? 'Close live chat' : unread ? `Open live chat, ${unread} unread` : 'Open live chat'}
         aria-expanded={open}
-        className="fixed right-5.5 bottom-5.5 z-50 flex h-12.5 w-12.5 items-center justify-center rounded-full bg-auth-accent shadow-[0_10px_30px_-8px_rgba(107,140,255,0.7)] transition-transform hover:scale-105"
+        className="fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-50 md:right-5.5 md:bottom-5.5 flex h-12.5 w-12.5 items-center justify-center rounded-full bg-auth-accent shadow-[0_10px_30px_-8px_rgba(107,140,255,0.7)] transition-transform hover:scale-105"
       >
         {open ? (
           <svg viewBox="0 0 16 16" fill="none" stroke="white" strokeWidth="1.8" className="h-5 w-5" aria-hidden="true">

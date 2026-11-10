@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { FoxLogo } from '@/components/fox-logo';
 import { apiClient, ApiError } from '@/lib/api-client';
+import { StarterCredits } from '@/components/marketing/starter-credits';
 
 const FIELD =
   'w-full rounded-md border border-auth-line bg-auth-bg2 px-3 py-2.5 text-auth-text outline-none placeholder:text-auth-text3 focus:border-auth-accent focus:ring-3 focus:ring-auth-accent-soft';
@@ -107,7 +108,7 @@ function VerifyEmailForm() {
                 </p>
                 <div className="mb-6.5 rounded-[10px] border border-auth-line p-3.5 text-[13px] text-auth-text2">
                   <b className="mb-1 block font-medium text-auth-text">While you wait</b>
-                  Logging in shows “awaiting approval” until your manager approves you. Once approved you get 100 free credits.
+                  Logging in shows “awaiting approval” until your manager approves you. Once approved you get <StarterCredits /> free credits to try it.
                 </div>
               </>
             )}

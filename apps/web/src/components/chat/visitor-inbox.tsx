@@ -54,7 +54,12 @@ export function useVisitorUnread(enabled: boolean): number {
 function Thread({ id, onChanged }: { id: string; onChanged: () => void }) {
   const me = useUser();
   const toast = useToast();
-  const { socket } = useRealtime();
+  const { socket, setChatFocus } = useRealtime();
+
+  useEffect(() => {
+    setChatFocus(`visitor:${id}`);
+    return () => setChatFocus(null);
+  }, [id, setChatFocus]);
   const thread = useApi<VisitorThread>(`/support/visitor-chats/${id}`);
   const { reload } = thread;
   const [draft, setDraft] = useState('');

@@ -77,6 +77,8 @@ describe.skipIf(!DATABASE_URL)('processBatch (Postgres)', () => {
   });
 
   async function makeBatch(n: number, opts: { google?: boolean; indexnow?: boolean; cost?: number } = { google: true }) {
+    // Like the API: the URL's charge rides on the Google row, or on IndexNow when Google isn't used.
+    const chargeIndexNow = opts.google === false;
     const [batch] = await db
       .insert(submissionBatches)
       .values({ userId, name: `Test ${randomUUID().slice(0, 6)}`, urlCount: n, creditsCharged: n * (opts.cost ?? 1), notifyWhenDone: true })
@@ -88,7 +90,7 @@ describe.skipIf(!DATABASE_URL)('processBatch (Postgres)', () => {
     const subs = [];
     for (const u of urlRows) {
       if (opts.google !== false) subs.push({ urlId: u.id, userId, providerId: googleId, batchId: batch.id, creditCost: opts.cost ?? 1 });
-      if (opts.indexnow) subs.push({ urlId: u.id, userId, providerId: indexNowId, batchId: batch.id, creditCost: 0 });
+      if (opts.indexnow) subs.push({ urlId: u.id, userId, providerId: indexNowId, batchId: batch.id, creditCost: chargeIndexNow ? (opts.cost ?? 1) : 0 });
     }
     await db.insert(urlSubmissions).values(subs);
     return batch.id;
@@ -166,13 +168,35 @@ describe.skipIf(!DATABASE_URL)('processBatch (Postgres)', () => {
     expect(await processBatch(deps(), batchId, { finalAttempt: false })).toMatchObject({ failed: 1, retrying: 0 });
   });
 
-  it('fails a URL whose site no service account owns', async () => {
+  const balance = async () => (await db.select({ b: users.creditBalanceCached }).from(users).where(eq(users.id, userId)))[0].b;
+
+  it('rejects (no refund) a URL whose site no service account owns', async () => {
     const batchId = await makeBatch(1);
     googleScript = () => ({ kind: 'permission_denied', status: 403, message: 'Failed to verify the URL ownership.' });
-    await processBatch(deps(), batchId, { finalAttempt: false });
+    const before = await balance();
+    const r = await processBatch(deps(), batchId, { finalAttempt: false });
+    expect(r).toMatchObject({ rejected: 1, failed: 0, refunded: 0, done: true });
     const [s] = await statuses(batchId);
-    expect(s.status).toBe('failed');
-    expect(s.lastError).toContain('owner of this site');
+    expect(s.status).toBe('rejected');
+    expect(s.lastError).toContain("can't submit for this site");
+    expect(s.lastError).toContain('Not refunded');
+    expect(await balance()).toBe(before);
+  });
+
+  it('rejects (no refund) a URL Google says is invalid', async () => {
+    const batchId = await makeBatch(1);
+    googleScript = () => ({ kind: 'invalid_url', status: 400, message: 'Invalid URL' });
+    expect(await processBatch(deps(), batchId, { finalAttempt: false })).toMatchObject({ rejected: 1, refunded: 0 });
+  });
+
+  it('refunds when every service account key is broken (our side)', async () => {
+    const batchId = await makeBatch(1, { cost: 3 });
+    googleScript = () => ({ kind: 'permission_denied', status: 401, message: 'invalid_grant' });
+    const before = await balance();
+    expect(await processBatch(deps(), batchId, { finalAttempt: false })).toMatchObject({ failed: 1, rejected: 0, refunded: 3 });
+    expect(await balance()).toBe(before + 3);
+    const [s] = await statuses(batchId);
+    expect(s.lastError).toContain('Refunded (technical error)');
   });
 
   it('waits (without spending attempts) when Google quota is exhausted', async () => {
@@ -185,10 +209,23 @@ describe.skipIf(!DATABASE_URL)('processBatch (Postgres)', () => {
     expect(pending.every((s) => s.attempts === 0 && s.lastError?.includes('quota'))).toBe(true);
   });
 
-  it('marks IndexNow rejections failed without refunds (IndexNow is free)', async () => {
+  it('rejects (no refund) when the IndexNow key file is missing on the site', async () => {
     const batchId = await makeBatch(1, { google: false, indexnow: true });
-    indexNowResult = { success: false, acceptedUrls: [], rejectedUrls: [], errorCode: 'PROVIDER_ERROR', errorMessage: 'Key not found at keyLocation', retryable: false };
+    indexNowResult = { success: false, providerStatusCode: 403, acceptedUrls: [], rejectedUrls: [], errorCode: 'VALIDATION_ERROR', errorMessage: 'IndexNow returned HTTP 403', retryable: false };
     const r = await processBatch(deps(), batchId, { finalAttempt: false });
-    expect(r).toMatchObject({ failed: 1, refunded: 0, done: true });
+    expect(r).toMatchObject({ rejected: 1, failed: 0, refunded: 0, done: true });
+    expect((await statuses(batchId))[0].lastError).toContain('key file');
+  });
+
+  it('refunds an IndexNow URL when our request was malformed (technical)', async () => {
+    const batchId = await makeBatch(1, { google: false, indexnow: true });
+    indexNowResult = { success: false, providerStatusCode: 400, acceptedUrls: [], rejectedUrls: [], errorCode: 'VALIDATION_ERROR', errorMessage: 'IndexNow returned HTTP 400', retryable: false };
+    expect(await processBatch(deps(), batchId, { finalAttempt: false })).toMatchObject({ failed: 1, rejected: 0, refunded: 1 });
+  });
+
+  it('never refunds a URL that was submitted (indexing is up to the engine)', async () => {
+    const batchId = await makeBatch(2, { google: true, indexnow: true });
+    const r = await processBatch(deps(), batchId, { finalAttempt: false });
+    expect(r).toMatchObject({ submitted: 4, refunded: 0 });
   });
 });

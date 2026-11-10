@@ -26,6 +26,10 @@ x-app-env: &app-env
   DATABASE_SSL: ${DATABASE_SSL:-false}
   REDIS_URL: ${REDIS_URL}
   ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+  # "Connect Google Search Console" (API starts the sign-in, worker uses the tokens).
+  GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+  GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+  GOOGLE_CONNECT_DAILY_QUOTA: ${GOOGLE_CONNECT_DAILY_QUOTA:-200}
 
 services:
   postgres:

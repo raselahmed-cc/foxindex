@@ -20,14 +20,14 @@ function client(publishResponses: Response[], tokenResponse: Response = json(200
 }
 
 describe('signServiceAccountJwt', () => {
-  it('produces a verifiable RS256 assertion with the indexing scope', () => {
+  it('produces a verifiable RS256 assertion with the indexing and Search Console scopes', () => {
     const jwt = signServiceAccountJwt(sa, 'https://token', 1_700_000_000);
     const [h, c, s] = jwt.split('.');
     const verifier = createVerify('RSA-SHA256');
     verifier.update(`${h}.${c}`);
     expect(verifier.verify(publicKey, Buffer.from(s, 'base64url'))).toBe(true);
     const claims = JSON.parse(Buffer.from(c, 'base64url').toString());
-    expect(claims).toMatchObject({ iss: sa.clientEmail, aud: 'https://token', scope: 'https://www.googleapis.com/auth/indexing', exp: 1_700_003_600 });
+    expect(claims).toMatchObject({ iss: sa.clientEmail, aud: 'https://token', scope: 'https://www.googleapis.com/auth/indexing https://www.googleapis.com/auth/webmasters.readonly', exp: 1_700_003_600 });
   });
 
   it('accepts keys whose newlines were escaped', () => {

@@ -40,14 +40,16 @@ function UserDrawer({
 }) {
   const toast = useToast();
   const { refreshBadges } = useNav();
-  const [startingCredit, setStartingCredit] = useState('100');
+  const policy = useApi<{ starterCredits: number }>('/admin/credits/settings');
+  const starter = String(policy.data?.starterCredits ?? 10);
+  const [startingCredit, setStartingCredit] = useState(starter);
   const [managerId, setManagerId] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
-    setStartingCredit('100');
+    setStartingCredit(starter);
     setManagerId(user?.assignedManagerId ?? '');
-  }, [user]);
+  }, [user, starter]);
 
   if (!user) return null;
 

@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, Field, Input, Modal, Select } from '@/components/dash/ui';
 import { apiClient } from '@/lib/api-client';
-import { errorMessage } from '@/lib/use-api';
+import { errorMessage, useApi } from '@/lib/use-api';
 import { COUNTRIES } from '@/lib/countries';
 import type { IssuedCredentials } from './credentials-modal';
 
-const EMPTY = { name: '', email: '', whatsapp: '', company: '', country: '', city: '', managerId: 'auto', startingCredits: '100', password: '' };
+const EMPTY = { name: '', email: '', whatsapp: '', company: '', country: '', city: '', managerId: 'auto', startingCredits: '10', password: '' };
 
 /** Create a ready-to-use customer account (active, email already verified). */
 export function AddClientModal({
@@ -22,6 +22,12 @@ export function AddClientModal({
   onCreated: (creds: IssuedCredentials) => void;
 }) {
   const [form, setForm] = useState(EMPTY);
+  // Start from the superadmin's free-credit amount; staff can still change it here.
+  const policy = useApi<{ starterCredits: number }>('/admin/credits/settings');
+  const starter = policy.data?.starterCredits;
+  useEffect(() => {
+    if (starter !== undefined) setForm((f) => (f.startingCredits === EMPTY.startingCredits ? { ...f, startingCredits: String(starter) } : f));
+  }, [starter]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = (k: keyof typeof EMPTY) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));

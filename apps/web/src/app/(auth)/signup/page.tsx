@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { FoxLogo } from '@/components/fox-logo';
 import { ReviewSpotlight } from '@/components/marketing/customer-reviews';
+import { StarterCredits } from '@/components/marketing/starter-credits';
 import { COUNTRIES } from '@/lib/countries';
 import { apiClient, ApiError } from '@/lib/api-client';
 
@@ -182,7 +183,7 @@ export default function SignupPage() {
         <div>
           <h1 className="mb-3.5 max-w-[16ch] text-4xl leading-[1.12] font-semibold tracking-tight text-balance">Start indexing in about ten minutes.</h1>
           <p className="max-w-[44ch] text-base text-auth-text2">
-            Create your account, confirm your email, and a manager approves you — usually within a few hours. Your first 100 credits are free.
+            Create your account, confirm your email, and a manager approves you — usually within a few hours. You get <StarterCredits /> free credits to try it.
           </p>
 
           <div className="mt-7 grid max-w-[520px] gap-3">
@@ -201,9 +202,9 @@ export default function SignupPage() {
 
         <div className="flex gap-4.5 text-[13px] text-auth-text3">
           <span>© 2026 FoxIndex</span>
-          <a href="#" className="hover:text-auth-text">Status</a>
-          <a href="#" className="hover:text-auth-text">Privacy</a>
-          <a href="#" className="hover:text-auth-text">Help</a>
+          <Link href="/privacy" className="hover:text-auth-text">Privacy</Link>
+          <Link href="/terms" className="hover:text-auth-text">Terms</Link>
+          <Link href="/" className="hover:text-auth-text">Home</Link>
         </div>
       </aside>
 
@@ -337,7 +338,7 @@ export default function SignupPage() {
             <label className="mb-5.5 flex items-start gap-2.5 text-[13.5px] leading-snug text-auth-text2">
               <input type="checkbox" required checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 h-4 w-4 flex-shrink-0 accent-auth-accent" />
               <span>
-                I agree to the <a href="#" className="text-auth-accent">Terms of Service</a> and <a href="#" className="text-auth-accent">Privacy Policy</a>, and understand my account is reviewed before activation.
+                I agree to the <Link href="/terms" target="_blank" className="text-auth-accent">Terms of Service</Link> and <Link href="/privacy" target="_blank" className="text-auth-accent">Privacy Policy</Link>, and understand my account is reviewed before activation.
               </span>
             </label>
 
@@ -359,7 +360,7 @@ export default function SignupPage() {
             <ol className="grid list-decimal gap-0.5 pl-4.5">
               <li>Enter the code we email you</li>
               <li>A manager reviews your details (a few hours, often faster)</li>
-              <li>You get 100 free credits and can connect your first site</li>
+              <li>You get <StarterCredits /> free credits and can connect your first site</li>
             </ol>
           </div>
         </div>

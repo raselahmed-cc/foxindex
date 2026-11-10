@@ -178,6 +178,7 @@ export default function SubmitUrlsPage() {
   const [name, setName] = useState('');
   const [nameTouched, setNameTouched] = useState(false);
   const pricing = useApi<{ creditsPerUrl: number }>('/credits/pricing');
+  const siteList = useApi<{ domain: string; indexnow: { verifiedAt: string | null } }[]>('/sites');
   const [keepChecking, setKeepChecking] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -207,6 +208,12 @@ export default function SubmitUrlsPage() {
   const hosts = [...new Set(readyLines.map((l) => l.host).filter((h): h is string => Boolean(h)))];
   const readyCount = readyLines.length;
   const suggested = suggestName(hosts);
+  // IndexNow engines ignore URLs from sites that don't host their key file.
+  const unverifiedHosts = hosts.filter((h) => {
+    const bare = h.replace(/^www\./, '');
+    const site = siteList.data?.find((s) => s.domain === h || s.domain === bare);
+    return siteList.data !== undefined && !site?.indexnow.verifiedAt;
+  });
   const shownName = nameTouched ? name : name || suggested;
 
   // Every accepted URL costs the same, whichever engines it reaches; the server is authoritative.
@@ -375,6 +382,13 @@ export default function SubmitUrlsPage() {
                     {hosts.length === 1 && <Pill tone="muted">All on {hosts[0]}</Pill>}
                     {hosts.length > 1 && <Pill tone="muted">{hosts.length} domains</Pill>}
                   </div>
+                  {unverifiedHosts.length > 0 && (
+                    <div role="note" className="mt-3 rounded-lg border border-auth-warn/35 bg-auth-warn-soft px-3.5 py-2.5 text-[12.5px] text-auth-text2">
+                      <b className="font-medium text-auth-warn">IndexNow isn’t set up for {unverifiedHosts.slice(0, 2).join(', ')}{unverifiedHosts.length > 2 ? ` and ${unverifiedHosts.length - 2} more` : ''}.</b>{' '}
+                      Bing, Yandex and the other IndexNow engines ignore URLs from a site until its key file is in place.{' '}
+                      <Link href="/sites" className="text-auth-accent">Set it up on Sites →</Link>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -465,7 +479,7 @@ export default function SubmitUrlsPage() {
                 Submit {fmtNumber(readyCount)} URL{readyCount === 1 ? '' : 's'}
               </Button>
               <p className="text-[12.5px] leading-snug text-auth-text3">
-                Each URL goes to Google, Bing, Yandex, Naver, Seznam and Yep. Credits for URLs that can’t be submitted are refunded automatically. Submissions start within 60 seconds.
+                Each URL goes to Google, Bing, Yandex, Naver, Seznam and Yep. If a technical error stops a URL from being sent, its credit is refunded automatically. URLs that are submitted but not indexed, or rejected because of the site’s setup, aren’t refunded. Submissions start within 60 seconds.
               </p>
             </div>
           </Card>

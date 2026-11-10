@@ -15,7 +15,7 @@ export const reviews = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     rating: integer('rating').notNull(),
     body: text('body').notNull(),
-    /** Name as the client wants it shown, e.g. "Tanvir H." */
+    /** Name as the client wants it shown, e.g. "Jane D." */
     displayName: text('display_name').notNull(),
     company: text('company'),
     jobTitle: text('job_title'),

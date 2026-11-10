@@ -66,6 +66,8 @@ export const createClientSchema = z.object({
 export type CreateClientInput = z.infer<typeof createClientSchema>;
 
 export const updateStaffSchema = z.object({
+  /** The name clients see in chat, tickets and their dashboard. */
+  name: z.string().trim().min(2, 'Enter their full name').max(120).optional(),
   role: z.enum(STAFF_ROLES).optional(),
   status: z.enum(['active', 'suspended']).optional(),
   maxClients: z.number().int().positive().max(10_000).nullable().optional(),

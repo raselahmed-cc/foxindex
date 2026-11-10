@@ -28,6 +28,8 @@ export interface NotifyInput {
   inApp?: boolean;
   /** Collapse repeated emails with the same key for this many seconds. */
   emailDedupe?: { key: string; seconds: number };
+  /** One bell entry per key per window (a chat burst becomes one entry, not one per message). */
+  inAppDedupe?: { key: string; seconds: number };
 }
 
 const escape = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] ?? c);
@@ -68,7 +70,8 @@ export class NotificationsService {
     const channels = { ...DEFAULT_USER_PREFERENCES.notifications[input.preference ?? 'managerReplied'], ...(input.preference ? prefs?.notifications?.[input.preference] : {}) };
     const payload = { title: input.title, body: input.body, link: input.link ?? null };
 
-    if (channels.inApp && input.inApp !== false) {
+    const inAppFresh = !input.inAppDedupe || (await this.redis.set(`notify-inapp:${input.inAppDedupe.key}:${user.id}`, '1', 'EX', input.inAppDedupe.seconds, 'NX')) === 'OK';
+    if (channels.inApp && input.inApp !== false && inAppFresh) {
       const [row] = await this.db.insert(notifications).values({ userId: user.id, channel: 'in_app', type: input.type, payload, sentAt: new Date() }).returning();
       this.realtime.emitToUser(user.id, 'notification:new', { id: row.id, type: input.type, ...payload, createdAt: row.createdAt, readAt: null });
     }

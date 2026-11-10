@@ -47,10 +47,10 @@ export interface SendOptions {
  * is on screen (the popup stays connected while closed). Admins can pass
  * scope "all" to supervise every conversation.
  */
-export function useChat(meId: string, { active = true, scope = 'mine' }: { active?: boolean; scope?: 'mine' | 'all' } = {}) {
+export function useChat(meId: string, { active = true, scope = 'mine', initialId = null }: { active?: boolean; scope?: 'mine' | 'all'; initialId?: string | null } = {}) {
   const { socket, setChatFocus, conversationsVersion } = useRealtime();
   const [conversations, setConversations] = useState<Conversation[] | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialId);
   const [messages, setMessages] = useState<Record<string, ChatMessage[]>>({});
   const [hasMore, setHasMore] = useState<Record<string, boolean>>({});
   const [loadingOlder, setLoadingOlder] = useState(false);

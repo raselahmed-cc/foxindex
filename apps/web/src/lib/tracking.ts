@@ -11,6 +11,16 @@ export interface EngineState {
   updatedAt: string;
 }
 
+/** Google's answer from Search Console URL Inspection; status null = not checked yet. */
+export interface GoogleIndex {
+  status: 'indexed' | 'crawled_not_indexed' | 'not_indexed' | 'unknown' | null;
+  coverage: string | null;
+  lastCrawledAt: string | null;
+  checkedAt: string | null;
+  nextCheckAt: string | null;
+  note: string | null;
+}
+
 export interface TrackedUrl {
   id: string;
   url: string;
@@ -20,6 +30,7 @@ export interface TrackedUrl {
   indexedAt: string | null;
   lastActivityAt: string;
   engines: Partial<Record<EngineKey, EngineState>>;
+  google: GoogleIndex;
 }
 
 export interface UrlCounts {
@@ -50,12 +61,21 @@ export interface UrlDetail extends TrackedUrl {
   }[];
 }
 
+export interface SiteIndexNow {
+  key: string;
+  keyFileUrl: string;
+  verifiedAt: string | null;
+  checkedAt: string | null;
+  lastError: string | null;
+}
+
 export interface SiteRow {
   id: string;
   domain: string;
   createdAt: string;
   lastActivityAt: string | null;
   counts: { total: number; indexed: number; submitted: number; queued: number; failed: number };
+  indexnow: SiteIndexNow;
 }
 
 export const URL_STATUS: Record<UrlStatus, { tone: Tone; label: string }> = {

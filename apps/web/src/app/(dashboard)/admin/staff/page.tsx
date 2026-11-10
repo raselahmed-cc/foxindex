@@ -96,12 +96,14 @@ function InviteCard({ onInvited, canCreateAdmins }: { onInvited: () => void; can
 
 function EditModal({ member, onClose, onSaved, canChangeRoles }: { member: StaffMember | null; onClose: () => void; onSaved: () => void; canChangeRoles: boolean }) {
   const toast = useToast();
+  const [name, setName] = useState('');
   const [role, setRole] = useState<StaffRole>('manager');
   const [maxClients, setMaxClients] = useState('');
   const [busy, setBusy] = useState(false);
   const [lastId, setLastId] = useState<string | null>(null);
   if ((member?.id ?? null) !== lastId) {
     setLastId(member?.id ?? null);
+    setName(member?.name ?? '');
     setRole(member?.role ?? 'manager');
     setMaxClients(member?.maxClients ? String(member.maxClients) : '');
   }
@@ -137,13 +139,17 @@ function EditModal({ member, onClose, onSaved, canChangeRoles }: { member: Staff
           <Button
             variant="primary"
             loading={busy}
-            onClick={() => void save({ role, maxClients: role === 'manager' && maxClients ? Number(maxClients) : null }, 'Staff member updated')}
+            disabled={name.trim().length < 2}
+            onClick={() => void save({ name: name.trim(), role, maxClients: role === 'manager' && maxClients ? Number(maxClients) : null }, 'Staff member updated')}
           >
             Save
           </Button>
         </>
       }
     >
+      <Field label="Full name" hint="Shown to clients in chat, tickets and on their dashboard.">
+        <Input value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />
+      </Field>
       {canChangeRoles && (
         <Field label="Role" hint="Changing a role signs them out so the new permissions apply immediately.">
           <Select value={role} onChange={(e) => setRole(e.target.value as StaffRole)}>

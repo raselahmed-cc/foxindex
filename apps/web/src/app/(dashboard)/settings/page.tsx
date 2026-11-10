@@ -28,7 +28,7 @@ const TIMEZONES = ['Asia/Dhaka', 'Asia/Kolkata', 'Asia/Kuala_Lumpur', 'Asia/Sing
 
 const EVENTS: { key: NotificationEvent; label: string; detail: string }[] = [
   { key: 'batchIndexed', label: 'Batch fully indexed', detail: 'All URLs in a submission confirmed on Google' },
-  { key: 'urlFailed', label: 'URL failed after 3 tries', detail: 'Includes the reason and refund' },
+  { key: 'urlFailed', label: 'URL failed after 3 tries', detail: 'Includes the reason, and whether it was refunded' },
   { key: 'lowBalance', label: 'Low credit balance', detail: 'When balance drops below your threshold' },
   { key: 'managerReplied', label: 'Manager replied', detail: "Chat and ticket replies while you're offline" },
   { key: 'paymentConfirmed', label: 'Payment confirmed', detail: 'Credits added, receipt attached' },

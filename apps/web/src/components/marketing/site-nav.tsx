@@ -7,10 +7,10 @@ import { FoxLogo } from '@/components/fox-logo';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
 const LINKS = [
-  { href: '#how', label: 'How it works' },
-  { href: '#engines', label: 'Search engines' },
-  { href: '#pricing', label: 'Pricing' },
-  { href: '#faq', label: 'FAQ' },
+  { href: '/#how', label: 'How it works' },
+  { href: '/#engines', label: 'Search engines' },
+  { href: '/#pricing', label: 'Pricing' },
+  { href: '/#faq', label: 'FAQ' },
 ];
 
 /**
@@ -45,7 +45,11 @@ export function SiteNav() {
         ) : (
           <>
             <Link href="/login" className="rounded-md border border-auth-line2 px-3.5 py-2 text-sm hover:bg-auth-surface2">Log in</Link>
-            <Link href="/signup" className="rounded-md bg-auth-accent px-3.5 py-2 text-sm font-medium whitespace-nowrap text-white hover:bg-auth-accent2">Create account</Link>
+            <Link href="/signup" className="rounded-md bg-auth-accent px-3.5 py-2 text-sm font-medium whitespace-nowrap text-white hover:bg-auth-accent2">
+              {/* Very small phones (≤ 350px) get the short label so the header never runs off-screen. */}
+              <span className="hidden min-[351px]:inline">Create account</span>
+              <span className="min-[351px]:hidden">Sign up</span>
+            </Link>
           </>
         )}
       </div>

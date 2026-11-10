@@ -26,6 +26,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { TicketsModule } from './modules/tickets/tickets.module';
 import { VisitorChatModule } from './modules/visitor-chat/visitor-chat.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
+import { GoogleConnectModule } from './modules/google-connect/google-connect.module';
 import { QueuesModule } from './queues/queues.module';
 import { IdempotencyModule } from './common/idempotency/idempotency.module';
 
@@ -54,6 +55,7 @@ import { IdempotencyModule } from './common/idempotency/idempotency.module';
     TicketsModule,
     VisitorChatModule,
     ReviewsModule,
+    GoogleConnectModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

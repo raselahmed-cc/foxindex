@@ -54,8 +54,9 @@ export class VisitorChatService {
     return { id: chat.id, name: chat.name, status: chat.status as 'open' | 'closed' };
   }
 
-  private staffPing(chatId: string) {
-    this.realtime.emitToRooms([VISITORS_ROOM], 'visitor:updated', { id: chatId });
+  /** Refreshes staff inboxes; with `message`, staff browsers also show a live alert for the visitor's new message. */
+  private staffPing(chatId: string, message?: { name: string; body: string }) {
+    this.realtime.emitToRooms([VISITORS_ROOM], 'visitor:updated', { id: chatId, ...(message ? { message: { name: message.name, preview: message.body.slice(0, 200) } } : {}) });
   }
 
   // ── Visitor side (public, token-authenticated) ──────────────────────────
@@ -96,7 +97,7 @@ export class VisitorChatService {
         emailDedupe: { key: `visitor-new:${chat.id}`, seconds: 600 },
       });
     }
-    this.staffPing(chat.id);
+    this.staffPing(chat.id, { name: input.name, body: input.message });
     return { token, chat: this.publicChat(chat), messages: await this.messages(chat) };
   }
 
@@ -122,7 +123,20 @@ export class VisitorChatService {
     });
     const dto: VisitorMessageDto = { id: msg.id, senderType: 'visitor', senderName: chat.name, body, createdAt: msg.createdAt };
     this.gateway.emitToChat(chat.id, 'visitor:message', dto);
-    this.staffPing(chat.id);
+    this.staffPing(chat.id, { name: chat.name, body });
+    // Whoever took the chat gets a bell entry per burst (everyone else still sees the live alert).
+    if (chat.assignedTo) {
+      this.notifications.notify({
+        userId: chat.assignedTo,
+        type: 'visitor.message',
+        title: `${chat.name} replied on website chat`,
+        body: body.slice(0, 300),
+        link: `/chat?tab=visitors&id=${chat.id}`,
+        inAppDedupe: { key: `visitor:${chat.id}`, seconds: 300 },
+        emailOnlyIfOffline: true,
+        emailDedupe: { key: `visitor:${chat.id}`, seconds: 600 },
+      });
+    }
     return dto;
   }
 

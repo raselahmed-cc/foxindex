@@ -22,7 +22,7 @@ const INCLUDED = [
   'CSV import and the REST API',
   'Live chat and WhatsApp with your account manager',
   'Support tickets',
-  'Automatic refund when a URL can’t be submitted',
+  'Automatic refund if a technical error stops a URL',
 ];
 
 /** Whole amounts stay whole; per-URL fractions keep enough precision to be meaningful (৳1.98, $0.017). */

@@ -7,6 +7,11 @@ import { apiClient } from './api-client';
 import { acquireChatSocket, releaseChatSocket } from './chat-socket';
 import { playChime, showDesktop } from './notifier';
 import type { ChatMessage } from './api-types';
+import { ChatAlerts, type ChatAlert } from '@/components/chat/chat-alerts';
+
+const ALERT_MS = 8000;
+/** Chat bell entries arrive alongside the live message event, which already chimes and pops up. */
+const CHAT_TYPES = new Set(['chat.message', 'visitor.message']);
 
 export interface AppNotification {
   id: string;
@@ -56,6 +61,15 @@ export function RealtimeProvider({ meId, role, children, onBadgesStale }: { meId
   const [ticketsVersion, setTicketsVersion] = useState(0);
   const [conversationsVersion, setConversationsVersion] = useState(0);
   const [chatUnread, setChatUnread] = useState(0);
+  const [alerts, setAlerts] = useState<ChatAlert[]>([]);
+  const isStaff = role !== 'client';
+
+  const pushAlert = useCallback((alert: Omit<ChatAlert, 'at'>) => {
+    const at = Date.now();
+    setAlerts((prev) => [{ ...alert, at }, ...prev.filter((a) => a.key !== alert.key)].slice(0, 3));
+    setTimeout(() => setAlerts((prev) => prev.filter((a) => !(a.key === alert.key && a.at === at))), ALERT_MS);
+  }, []);
+  const dismissAlert = useCallback((key: string) => setAlerts((prev) => prev.filter((a) => a.key !== key)), []);
   const focusRef = useRef<string | null>(null);
   const staleRef = useRef(onBadgesStale);
   staleRef.current = onBadgesStale;
@@ -78,8 +92,10 @@ export function RealtimeProvider({ meId, role, children, onBadgesStale }: { meId
     const onNotification = (n: AppNotification) => {
       setNotifications((prev) => [n, ...prev.filter((x) => x.id !== n.id)].slice(0, 50));
       setUnread((u) => u + 1);
-      playChime();
-      showDesktop(n.title, n.body, { tag: n.id, onClick: () => n.link && router.push(n.link) });
+      if (!CHAT_TYPES.has(n.type)) {
+        playChime();
+        showDesktop(n.title, n.body, { tag: n.id, onClick: () => n.link && router.push(n.link) });
+      }
       if (n.type.startsWith('ticket')) setTicketsVersion((v) => v + 1);
       staleRef.current();
     };
@@ -92,15 +108,28 @@ export function RealtimeProvider({ meId, role, children, onBadgesStale }: { meId
       }
       const viewing = focusRef.current === m.conversationId && document.visibilityState === 'visible';
       if (!viewing) {
+        const href = role === 'client' ? '/chat' : `/chat?c=${m.conversationId}`;
+        const preview = m.body || 'Sent an attachment';
         playChime();
         setChatUnread((n) => n + 1);
-        showDesktop(`New message from ${m.senderName ?? 'FoxIndex'}`, m.body || 'Sent an attachment', { tag: `chat-${m.conversationId}`, onClick: () => router.push('/chat') });
+        pushAlert({ key: `chat-${m.conversationId}`, name: m.senderName ?? 'FoxIndex', preview, href });
+        showDesktop(`New message from ${m.senderName ?? 'FoxIndex'}`, preview, { tag: `chat-${m.conversationId}`, onClick: () => router.push(href) });
       }
       staleRef.current();
     };
     const onTicket = () => {
       setTicketsVersion((v) => v + 1);
       staleRef.current();
+    };
+    // Website (pre-sales) chats: every staff member hears new visitor messages.
+    const onVisitor = (p: { id: string; message?: { name: string; preview: string } }) => {
+      if (!isStaff || !p.message) return;
+      if (focusRef.current === `visitor:${p.id}` && document.visibilityState === 'visible') return;
+      const href = `/chat?tab=visitors&id=${p.id}`;
+      playChime();
+      setChatUnread((n) => n + 1);
+      pushAlert({ key: `visitor-${p.id}`, name: p.message.name, preview: p.message.preview, href, tag: 'Website' });
+      showDesktop(`Website chat · ${p.message.name}`, p.message.preview, { tag: `visitor-${p.id}`, onClick: () => router.push(href) });
     };
     const onConversations = () => {
       s.emit('rooms:refresh');
@@ -113,6 +142,7 @@ export function RealtimeProvider({ meId, role, children, onBadgesStale }: { meId
     s.on('message:new', onMessage);
     s.on('ticket:updated', onTicket);
     s.on('conversations:changed', onConversations);
+    s.on('visitor:updated', onVisitor);
     if (s.connected) onConnect();
     return () => {
       s.off('connect', onConnect);
@@ -121,9 +151,10 @@ export function RealtimeProvider({ meId, role, children, onBadgesStale }: { meId
       s.off('message:new', onMessage);
       s.off('ticket:updated', onTicket);
       s.off('conversations:changed', onConversations);
+      s.off('visitor:updated', onVisitor);
       releaseChatSocket();
     };
-  }, [meId, role, router]);
+  }, [meId, role, isStaff, router, pushAlert]);
 
   // "(3) FoxIndex" while there's something unseen and the tab is in the background.
   useEffect(() => {
@@ -143,7 +174,11 @@ export function RealtimeProvider({ meId, role, children, onBadgesStale }: { meId
 
   const setChatFocus = useCallback((conversationId: string | null) => {
     focusRef.current = conversationId;
-    if (conversationId) setChatUnread(0);
+    if (conversationId) {
+      setChatUnread(0);
+      // Opening a chat clears its pop-up.
+      setAlerts((prev) => prev.filter((a) => a.key !== `chat-${conversationId}` && a.key !== conversationId.replace(/^visitor:/, 'visitor-')));
+    }
   }, []);
 
   const value = useMemo<RealtimeState>(
@@ -151,7 +186,12 @@ export function RealtimeProvider({ meId, role, children, onBadgesStale }: { meId
     [socket, connected, notifications, unread, markNotificationsRead, setChatFocus, ticketsVersion, conversationsVersion],
   );
 
-  return <RealtimeContext.Provider value={value}>{children}</RealtimeContext.Provider>;
+  return (
+    <RealtimeContext.Provider value={value}>
+      {children}
+      <ChatAlerts alerts={alerts} onDismiss={dismissAlert} />
+    </RealtimeContext.Provider>
+  );
 }
 
 export function useRealtime() {

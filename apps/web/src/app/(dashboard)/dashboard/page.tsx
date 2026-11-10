@@ -12,6 +12,7 @@ import { apiClient } from '@/lib/api-client';
 import { errorMessage, useApi } from '@/lib/use-api';
 import { fmtNumber, relativeTime } from '@/lib/format';
 import { URL_STATUS, splitUrl, type SiteRow, type TrackedUrl, type UrlCounts } from '@/lib/tracking';
+import { GoogleIndexBadge } from '@/components/urls/google-index';
 
 interface Overview {
   balance: number;
@@ -110,9 +111,9 @@ export default function DashboardOverviewPage() {
               />
               <Stat label="Queued" value={fmtNumber(o.counts.queued)} detail={o.counts.queued ? 'Being sent now' : 'Nothing waiting'} />
               <Stat
-                label="Failed · refunded"
+                label="Failed or rejected"
                 value={fmtNumber(o.counts.failed)}
-                detail={o.refundedCredits30d ? `${fmtNumber(o.refundedCredits30d)} credits refunded (30 days)` : 'Failed Google submissions are refunded'}
+                detail={o.refundedCredits30d ? `${fmtNumber(o.refundedCredits30d)} credits refunded (30 days)` : 'Technical errors are refunded automatically'}
                 detailTone={o.counts.failed ? 'down' : undefined}
                 right={o.counts.failed ? <Link href="/urls" className="text-auth-accent">Review</Link> : undefined}
               />
@@ -170,7 +171,7 @@ export default function DashboardOverviewPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse text-[13.5px]">
                     <thead>
-                      <tr>{['URL', 'Status', 'Last activity'].map((h) => <th key={h} className="border-b border-auth-line px-4.5 py-2.5 text-left text-xs font-medium text-auth-text3">{h}</th>)}</tr>
+                      <tr>{['URL', 'Submission', 'On Google', 'Last activity'].map((h) => <th key={h} className="border-b border-auth-line px-4.5 py-2.5 text-left text-xs font-medium text-auth-text3">{h}</th>)}</tr>
                     </thead>
                     <tbody>
                       {o.recentUrls.map((r) => {
@@ -179,6 +180,7 @@ export default function DashboardOverviewPage() {
                           <tr key={r.id} className="hover:bg-white/[0.015]">
                             <td className="max-w-115 overflow-hidden border-b border-auth-line px-4.5 py-2.5 font-mono text-[12.5px] text-ellipsis whitespace-nowrap"><span className="text-auth-text3">{host}</span>{rest}</td>
                             <td className="border-b border-auth-line px-4.5 py-2.5"><Pill tone={URL_STATUS[r.status].tone}>{URL_STATUS[r.status].label}</Pill></td>
+                            <td className="border-b border-auth-line px-4.5 py-2.5 whitespace-nowrap"><GoogleIndexBadge google={r.google} /></td>
                             <td className="border-b border-auth-line px-4.5 py-2.5 whitespace-nowrap text-auth-text3">{relativeTime(r.lastActivityAt)}</td>
                           </tr>
                         );

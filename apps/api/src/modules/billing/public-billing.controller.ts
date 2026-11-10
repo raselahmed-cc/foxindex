@@ -27,11 +27,11 @@ export class PublicBillingController {
     }));
   }
 
-  /** Credits charged per submitted URL, so the pricing page can show a true per-URL price. */
+  /** Price per URL and the free credits new accounts get — the marketing pages show both. */
   @Get('pricing')
   @RateLimit({ scope: 'public-packs', limit: 120, windowSeconds: 60 })
   async pricing() {
-    const { creditsPerUrl } = await this.creditSettings.get();
-    return { creditsPerUrl };
+    const { creditsPerUrl, starterCredits } = await this.creditSettings.get();
+    return { creditsPerUrl, starterCredits };
   }
 }
